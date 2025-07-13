@@ -158,283 +158,377 @@
     <div id="matchesContainer">No matches available.</div>
   </div>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const statusText = document.getElementById('status');
-    const matchesContainer = document.getElementById('matchesContainer');
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const statusText = document.getElementById('status');
+  const matchesContainer = document.getElementById('matchesContainer');
 
-    const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
+  const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
 
-    let rows = 6, cols = 7;
-    let board = [];
-    let currentPlayer = PLAYER_RED;
-    let gameState = 'idle';
-    let myPlayer = PLAYER_NONE;
-    let gameId = null;
-    let gameMode = 'pvp';
-    let currentGame = null;
-    let aiDifficulty = 'normal';
+  let rows = 6, cols = 7;
+  let board = [];
+  let currentPlayer = PLAYER_RED;
+  let gameState = 'idle';
+  let myPlayer = PLAYER_NONE;
+  let gameId = null;
+  let gameMode = 'pvp';
+  let currentGame = null;
+  let aiDifficulty = 'normal';
 
-    // Track all available matches
-    let matches = {};
+  let matches = {};
 
-    // Setup UI Elements
-    function setupUI() {
-      const rowSel = document.getElementById('rows');
-      const colSel = document.getElementById('cols');
-      for (let i = 4; i <= 10; i++) {
-        rowSel.add(new Option(i, i));
-        colSel.add(new Option(i, i));
-      }
-      rowSel.value = rows;
-      colSel.value = cols;
-      rowSel.onchange = () => { rows = +rowSel.value; };
-      colSel.onchange = () => { cols = +colSel.value; };
-      const modeSel = document.getElementById('mode');
-      modeSel.onchange = () => {
-        gameMode = modeSel.value;
-        toggleAIDifficulty(gameMode === 'ai');
+  function setupUI() {
+    const rowSel = document.getElementById('rows');
+    const colSel = document.getElementById('cols');
+    for (let i = 4; i <= 10; i++) {
+      rowSel.add(new Option(i, i));
+      colSel.add(new Option(i, i));
+    }
+    rowSel.value = rows;
+    colSel.value = cols;
+    rowSel.onchange = () => { rows = +rowSel.value; };
+    colSel.onchange = () => { cols = +colSel.value; };
+    const modeSel = document.getElementById('mode');
+    modeSel.onchange = () => {
+      gameMode = modeSel.value;
+      toggleAIDifficulty(gameMode === 'ai');
+    };
+    document.getElementById('create').onclick = onCreate;
+    document.getElementById('leave').onclick = onLeave;
+    canvas.addEventListener('click', onClick);
+
+    const aiButtons = document.querySelectorAll('#aiDifficultyButtons button');
+    aiButtons.forEach(btn => {
+      btn.onclick = () => {
+        aiButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        aiDifficulty = btn.getAttribute('data-level');
+        setStatus(`AI difficulty set to ${aiDifficulty}`);
       };
-      document.getElementById('create').onclick = onCreate;
-      document.getElementById('leave').onclick = onLeave;
-      canvas.addEventListener('click', onClick);
+    });
 
-      // AI Difficulty Buttons
-      const aiButtons = document.querySelectorAll('#aiDifficultyButtons button');
-      aiButtons.forEach(btn => {
-        btn.onclick = () => {
-          aiButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          aiDifficulty = btn.getAttribute('data-level');
-          setStatus(`AI difficulty set to ${aiDifficulty}`);
-        };
-      });
+    updateUIButtons();
+    renderMatchList();
+  }
 
-      updateUIButtons();
-      renderMatchList();
-    }
+  function toggleAIDifficulty(show) {
+    const div = document.getElementById('aiDifficultyButtons');
+    div.style.display = show ? 'block' : 'none';
+  }
 
-    function toggleAIDifficulty(show) {
-      const div = document.getElementById('aiDifficultyButtons');
-      div.style.display = show ? 'block' : 'none';
-    }
+  function onCreate() {
+    rows = +document.getElementById('rows').value;
+    cols = +document.getElementById('cols').value;
+    initBoard();
+    gameId = Math.random().toString(36).substr(2, 8);
+    currentGame = { id: gameId, rows, cols, mode: gameMode, difficulty: aiDifficulty, state: 'waiting' };
+    myPlayer = PLAYER_RED;
+    currentPlayer = PLAYER_RED;
 
-    function onCreate() {
-      rows = +document.getElementById('rows').value;
-      cols = +document.getElementById('cols').value;
-      initBoard();
-      gameId = Math.random().toString(36).substr(2, 8);
-      currentGame = { id: gameId, rows, cols, mode: gameMode, difficulty: aiDifficulty, state: 'waiting' };
-      myPlayer = PLAYER_RED;
-      currentPlayer = PLAYER_RED;
-
-      if (gameMode === 'ai') {
-        // AI games start immediately in playing state
-        currentGame.state = 'playing';
-        gameState = 'playing';
-        updateStatus("Your turn!");
-        toggleMatchList(false);
-        updateUIButtons();
-      } else {
-        gameState = 'waiting';
-        updateStatus("Waiting for opponent...");
-        toggleMatchList(true);
-        addMatch(currentGame);
-      }
-
-      broadcast({ type: 'create', game: currentGame });
-    }
-
-    function onJoinGame(id) {
-      if (!matches[id]) {
-        setStatus("Match not found.");
-        return;
-      }
-      currentGame = matches[id];
-      rows = currentGame.rows;
-      cols = currentGame.cols;
-      gameId = currentGame.id;
-      myPlayer = PLAYER_YELLOW;
-      currentPlayer = PLAYER_RED;
-      initBoard();
+    if (gameMode === 'ai') {
+      currentGame.state = 'playing';
       gameState = 'playing';
-      updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-      broadcast({ type: 'join', gameId });
+      updateStatus("Your turn!");
       toggleMatchList(false);
       updateUIButtons();
-
-      if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-        setTimeout(aiMove, 500);
-      }
-    }
-
-    function onLeave() {
-      broadcast({ type: 'leave', gameId });
-      resetGame();
+    } else {
+      gameState = 'waiting';
+      updateStatus("Waiting for opponent...");
       toggleMatchList(true);
+      addMatch(currentGame);
     }
 
-    function resetGame() {
-      gameState = 'idle';
-      currentGame = null;
-      board = [];
-      myPlayer = PLAYER_NONE;
-      gameId = null;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      updateStatus("Game ended.");
-      updateUIButtons();
-    }
+    broadcast({ type: 'create', game: currentGame });
+  }
 
-    function initBoard() {
-      board = Array.from({ length: rows }, () => Array(cols).fill(PLAYER_NONE));
-      canvas.width = cols * 70;
-      canvas.height = rows * 70;
-      drawBoard();
+  function onJoinGame(id) {
+    if (!matches[id]) {
+      setStatus("Match not found.");
+      return;
     }
+    currentGame = matches[id];
+    rows = currentGame.rows;
+    cols = currentGame.cols;
+    gameId = currentGame.id;
+    myPlayer = PLAYER_YELLOW;
+    currentPlayer = PLAYER_RED;
+    initBoard();
+    gameState = 'playing';
+    updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
+    broadcast({ type: 'join', gameId });
+    toggleMatchList(false);
+    updateUIButtons();
 
-    function drawBoard() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
-                          board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
-          ctx.beginPath();
-          ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
+      setTimeout(aiMove, 500);
+    }
+  }
+
+  function onLeave() {
+    broadcast({ type: 'leave', gameId });
+    resetGame();
+    toggleMatchList(true);
+  }
+
+  function resetGame() {
+    gameState = 'idle';
+    currentGame = null;
+    board = [];
+    myPlayer = PLAYER_NONE;
+    gameId = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    updateStatus("Game ended.");
+    updateUIButtons();
+  }
+
+  function initBoard() {
+    board = Array.from({ length: rows }, () => Array(cols).fill(PLAYER_NONE));
+    canvas.width = cols * 70;
+    canvas.height = rows * 70;
+    drawBoard();
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
+                        board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
+        ctx.beginPath();
+        ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
+        ctx.fill();
       }
     }
+  }
 
-    function onClick(e) {
-      if (gameState !== 'playing' || myPlayer !== currentPlayer) return;
-      const col = Math.floor(e.offsetX / 70);
-      if (col < 0 || col >= cols) return;
+  function onClick(e) {
+    if (gameState !== 'playing' || myPlayer !== currentPlayer) return;
+    const col = Math.floor(e.offsetX / 70);
+    if (col < 0 || col >= cols) return;
 
-      for (let y = rows - 1; y >= 0; y--) {
-        if (board[y][col] === PLAYER_NONE) {
-          board[y][col] = myPlayer;
+    for (let y = rows - 1; y >= 0; y--) {
+      if (board[y][col] === PLAYER_NONE) {
+        board[y][col] = myPlayer;
+        drawBoard();
+        broadcast({ type: 'move', col, row: y, player: myPlayer, gameId });
+
+        if (checkWin()) {
+          gameState = 'ended';
+          updateStatus("You win!");
+          broadcast({ type: 'end', winner: myPlayer, gameId });
+        } else if (isBoardFull()) {
+          gameState = 'ended';
+          updateStatus("Draw!");
+          broadcast({ type: 'end', winner: PLAYER_NONE, gameId });
+        } else {
+          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
+
+          if (gameMode === 'ai' && currentPlayer !== myPlayer) {
+            setTimeout(aiMove, 500);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  function isBoardFull() {
+    return board.every(row => row.every(cell => cell !== PLAYER_NONE));
+  }
+
+  // AI logic (same simple random AI for demo)
+  function aiMove() {
+    if (gameState !== 'playing' || currentPlayer !== (myPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED)) return;
+
+    let col;
+    // Easy AI: random valid move
+    if (aiDifficulty === 'easy') {
+      const validCols = [];
+      for (let c = 0; c < cols; c++) {
+        if (board[0][c] === PLAYER_NONE) validCols.push(c);
+      }
+      col = validCols[Math.floor(Math.random() * validCols.length)];
+    } else {
+      // For higher difficulties: simple blocking and winning logic (placeholder)
+      col = findBestMove();
+    }
+
+    for (let y = rows - 1; y >= 0; y--) {
+      if (board[y][col] === PLAYER_NONE) {
+        board[y][col] = currentPlayer;
+        drawBoard();
+        broadcast({ type: 'move', col, row: y, player: currentPlayer, gameId });
+
+        if (checkWin()) {
+          gameState = 'ended';
+          updateStatus("You lose.");
+          broadcast({ type: 'end', winner: currentPlayer, gameId });
+        } else if (isBoardFull()) {
+          gameState = 'ended';
+          updateStatus("Draw!");
+          broadcast({ type: 'end', winner: PLAYER_NONE, gameId });
+        } else {
+          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
+        }
+        break;
+      }
+    }
+  }
+
+  function findBestMove() {
+    // Placeholder for AI difficulty modes beyond easy:
+    // For demo just random valid move (same as easy)
+    const validCols = [];
+    for (let c = 0; c < cols; c++) {
+      if (board[0][c] === PLAYER_NONE) validCols.push(c);
+    }
+    return validCols[Math.floor(Math.random() * validCols.length)];
+  }
+
+  function checkWin() {
+    // Check horizontal, vertical, diagonal for 4 in a row
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const player = board[y][x];
+        if (player === PLAYER_NONE) continue;
+
+        // horizontal
+        if (x + 3 < cols &&
+          player === board[y][x + 1] &&
+          player === board[y][x + 2] &&
+          player === board[y][x + 3]) return true;
+
+        // vertical
+        if (y + 3 < rows &&
+          player === board[y + 1][x] &&
+          player === board[y + 2][x] &&
+          player === board[y + 3][x]) return true;
+
+        // diag down-right
+        if (x + 3 < cols && y + 3 < rows &&
+          player === board[y + 1][x + 1] &&
+          player === board[y + 2][x + 2] &&
+          player === board[y + 3][x + 3]) return true;
+
+        // diag up-right
+        if (x + 3 < cols && y - 3 >= 0 &&
+          player === board[y - 1][x + 1] &&
+          player === board[y - 2][x + 2] &&
+          player === board[y - 3][x + 3]) return true;
+      }
+    }
+    return false;
+  }
+
+  function updateStatus(text) {
+    statusText.textContent = text;
+  }
+
+  function updateUIButtons() {
+    document.getElementById('leave').disabled = !(gameState === 'playing' || gameState === 'ended');
+    document.getElementById('create').disabled = (gameState === 'playing' || gameState === 'waiting');
+  }
+
+  function addMatch(match) {
+    matches[match.id] = match;
+    renderMatchList();
+  }
+
+  function deleteMatch(id) {
+    delete matches[id];
+    renderMatchList();
+  }
+
+  function renderMatchList() {
+    const availableMatches = Object.values(matches).filter(m => m.state === 'waiting');
+    if (availableMatches.length === 0) {
+      matchesContainer.textContent = "No matches available.";
+      return;
+    }
+    matchesContainer.innerHTML = "";
+    availableMatches.forEach(m => {
+      const div = document.createElement('div');
+      div.className = "matchItem";
+      div.innerHTML = `
+        <span>Match ${m.id} (${m.rows}x${m.cols}) Mode: ${m.mode}</span>
+        <button>Join</button>
+      `;
+      const btn = div.querySelector('button');
+      btn.onclick = () => onJoinGame(m.id);
+      matchesContainer.appendChild(div);
+    });
+  }
+
+  function toggleMatchList(show) {
+    document.getElementById('matchList').style.display = show ? 'block' : 'none';
+  }
+
+  // Broadcast wrapper for Discord Embedded Activity SDK
+  function broadcast(data) {
+    if (typeof DiscordSDK !== "undefined" && DiscordSDK.activity) {
+      DiscordSDK.activity.broadcast(data);
+    } else {
+      console.log("Broadcast:", data);
+    }
+  }
+
+  // Handle incoming events from Discord
+  function handleEvent(data) {
+    switch(data.type) {
+      case 'create':
+        addMatch(data.game);
+        break;
+      case 'join':
+        if (data.gameId === gameId && data.player !== myPlayer) {
+          gameState = 'playing';
+          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
+          toggleMatchList(false);
+          updateUIButtons();
+        }
+        deleteMatch(data.gameId);
+        break;
+      case 'move':
+        if (data.gameId === gameId && data.player !== myPlayer) {
+          board[data.row][data.col] = data.player;
           drawBoard();
-          broadcast({ type: 'move', col, row: y, player: myPlayer, gameId });
+
           if (checkWin()) {
             gameState = 'ended';
-            updateStatus("You win!");
-            broadcast({ type: 'end', winner: myPlayer, gameId });
+            updateStatus("You lose.");
+            updateUIButtons();
           } else if (isBoardFull()) {
             gameState = 'ended';
             updateStatus("Draw!");
-            broadcast({ type: 'end', winner: PLAYER_NONE, gameId });
+            updateUIButtons();
           } else {
             currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
             updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-            if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-              setTimeout(aiMove, 500);
-            }
           }
-          break;
         }
-      }
-    }
-
-    function isBoardFull() {
-      return board.every(row => row.every(cell => cell !== PLAYER_NONE));
-    }
-
-    // AI move logic omitted for brevity; same as before, include your aiEasy, aiNormal, etc., functions here...
-
-    // ... [Insert all AI functions from previous script here] ...
-
-    // Broadcast event helper
-    function broadcast(data) {
-      if (typeof DiscordSDK !== "undefined") {
-        DiscordSDK.activity.broadcast(data);
-      }
-    }
-
-    // Event handler for Discord SDK broadcast messages
-    function handleEvent(data) {
-      if (data.game?.id) {
-        matches[data.game.id] = data.game;
-        renderMatchList();
-      }
-      if (data.gameId && gameId && data.gameId !== gameId) return;
-
-      switch (data.type) {
-        case 'create':
-          matches[data.game.id] = data.game;
-          renderMatchList();
-          break;
-        case 'join':
-          if (matches[data.gameId]) {
-            matches[data.gameId].state = 'playing';
-            if (gameId === data.gameId) {
-              gameState = 'playing';
-              updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-              toggleMatchList(false);
-              updateUIButtons();
-              if (gameMode === 'ai' && currentPlayer !== myPlayer) setTimeout(aiMove, 500);
-            }
-            renderMatchList();
-          }
-          break;
-        case 'move':
-          board[data.row][data.col] = data.player;
-          drawBoard();
-          currentPlayer = data.player === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          break;
-        case 'end':
+        break;
+      case 'end':
+        if (data.gameId === gameId) {
           gameState = 'ended';
           updateStatus(data.winner === myPlayer ? "You win!" : "You lose.");
           updateUIButtons();
           toggleMatchList(true);
-          break;
-        case 'leave':
-          delete matches[data.gameId];
-          if (gameId === data.gameId) {
-            resetGame();
-            toggleMatchList(true);
-          }
-          renderMatchList();
-          break;
-      }
+        }
+        break;
+      case 'leave':
+        deleteMatch(data.gameId);
+        if (gameId === data.gameId) {
+          resetGame();
+          toggleMatchList(true);
+        }
+        break;
     }
+  }
 
-    function updateStatus(text) {
-      statusText.textContent = text;
-    }
-
-    function updateUIButtons() {
-      document.getElementById('leave').disabled = gameState !== 'playing' && gameState !== 'ended';
-      document.getElementById('create').disabled = gameState === 'playing' || gameState === 'waiting';
-    }
-
-    function renderMatchList() {
-      const availableMatches = Object.values(matches).filter(m => m.state === 'waiting');
-      if (availableMatches.length === 0) {
-        matchesContainer.textContent = "No matches available.";
-        return;
-      }
-      matchesContainer.innerHTML = "";
-      availableMatches.forEach(m => {
-        const div = document.createElement('div');
-        div.className = "matchItem";
-        div.innerHTML = `
-          <span>Match ${m.id} (${m.rows}x${m.cols}) Mode: ${m.mode}</span>
-          <button>Join</button>
-        `;
-        const btn = div.querySelector('button');
-        btn.onclick = () => onJoinGame(m.id);
-        matchesContainer.appendChild(div);
-      });
-    }
-
-    function toggleMatchList(show) {
-      document.getElementById('matchList').style.display = show ? 'block' : 'none';
-    }
-
+  function setup() {
     setupUI();
-
     if (typeof DiscordSDK !== "undefined") {
       DiscordSDK.ready().then(() => {
         DiscordSDK.activity.on('broadcast', handleEvent);
@@ -442,6 +536,9 @@
     } else {
       updateStatus("DiscordSDK not available (test mode).");
     }
-  </script>
+  }
+
+  setup();
+</script>
 </body>
 </html>
