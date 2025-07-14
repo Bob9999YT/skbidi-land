@@ -24,7 +24,7 @@
   #aiDifficultyButtons button { font-size:14px; border-radius:12px; padding:6px 10px; }
   #aiDifficultyButtons button.active { background:#ddb300; color:#222; }
   #profileDisplay { text-align:center; font-weight:900; color:#442200; margin-bottom:10px; }
-  #refreshMatchesBtn { width:100%; }
+  #refreshMatchesBtn { width:100%; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -60,6 +60,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <script>
 (function initializeGame() {
+  // Firebase config
   const config = {
     apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
     authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
@@ -94,60 +95,72 @@
   const matchListDiv = el('matchList');
 
   function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     const cell = canvas.width / COLS;
     ctx.fillStyle = '#222244';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-      const x=c*cell,y=r*cell;
-      ctx.beginPath();
-      ctx.fillStyle = '#555577';
-      ctx.arc(x+cell/2,y+cell/2,cell/2-6,0,2*Math.PI);
-      ctx.fill();
-      if(board[r][c] !== PLAYER_NONE) {
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = c * cell, y = r * cell;
         ctx.beginPath();
-        ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff5555' : '#ffff77';
-        ctx.arc(x+cell/2,y+cell/2,cell/2-12,0,2*Math.PI);
+        ctx.fillStyle = '#555577';
+        ctx.arc(x + cell/2, y + cell/2, cell/2 - 6, 0, 2*Math.PI);
         ctx.fill();
+        if (board[r][c] !== PLAYER_NONE) {
+          ctx.beginPath();
+          ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff5555' : '#ffff77';
+          ctx.arc(x + cell/2, y + cell/2, cell/2 - 12, 0, 2*Math.PI);
+          ctx.fill();
+        }
       }
     }
   }
 
-  function place(col, pl) {
-    for (let r = ROWS - 1; r >= 0; r--) if (board[r][col] === PLAYER_NONE) {
-      board[r][col] = pl;
-      return r;
+  function placePiece(col, player) {
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r][col] === PLAYER_NONE) {
+        board[r][col] = player;
+        return r;
+      }
     }
     return -1;
   }
 
-  function checkWin(pl) {
+  function checkWin(player) {
     const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-    const inbound = (r,c) => r>=0 && r<ROWS && c>=0 && c<COLS;
-    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (board[r][c] === pl) {
-      for (let [dr,dc] of dirs) {
-        let count = 1;
-        for (let i = 1; i<4; i++) {
-          const nr = r + dr*i, nc = c + dc*i;
-          if (!inbound(nr,nc) || board[nr][nc] !== pl) break;
-          count++;
+    const inbound = (r, c) => r>=0 && r<ROWS && c>=0 && c<COLS;
+    for (let r=0; r<ROWS; r++) {
+      for (let c=0; c<COLS; c++) {
+        if (board[r][c] === player) {
+          for (let [dr, dc] of dirs) {
+            let count = 1;
+            for (let i=1; i<4; i++) {
+              const nr = r + dr*i, nc = c + dc*i;
+              if (!inbound(nr, nc) || board[nr][nc] !== player) break;
+              count++;
+            }
+            if (count >= 4) return true;
+          }
         }
-        if (count >= 4) return true;
       }
     }
     return false;
   }
 
-  function isFull() {
-    return board[0].every(c => c !== PLAYER_NONE);
+  function isBoardFull() {
+    return board[0].every(cell => cell !== PLAYER_NONE);
   }
 
   function switchTurn() {
-    currPl = (currPl === PLAYER_RED) ? PLAYER_YELLOW : PLAYER_RED;
+    currPl = (currPl === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED);
   }
 
   function resetGame() {
-    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) board[r][c] = PLAYER_NONE;
+    for (let r=0; r<ROWS; r++) {
+      for (let c=0; c<COLS; c++) {
+        board[r][c] = PLAYER_NONE;
+      }
+    }
     draw();
     canvas.style.display = 'none';
     el('leaveMatchBtn').disabled = true;
@@ -182,7 +195,7 @@
       mode
     };
     ref.set(data);
-    listen();
+    listenToMatch();
     statusDiv.textContent = 'Waiting for opponent...';
     updateMatchList();
   }
@@ -199,22 +212,26 @@
       currPl = m.currPl;
       canvas.style.display = 'block';
       el('leaveMatchBtn').disabled = false;
-      listen();
+      listenToMatch();
       statusDiv.textContent = "Your turn";
     });
   }
 
-  function listen() {
-    db.ref(`matches/${matchId}`).on('value', snap => {
+  function listenToMatch() {
+    const ref = db.ref(`matches/${matchId}`);
+    ref.on('value', snap => {
       const m = snap.val();
-      if (!m) { resetGame(); return; }
-      m.board.forEach((row, r) => row.forEach((v, c) => board[r][c] = v));
+      if (!m) {
+        resetGame();
+        return;
+      }
+      m.board.forEach((row, r) => row.forEach((v, c) => { board[r][c] = v; }));
       currPl = m.currPl;
       draw();
       if (m.status === 'waiting') {
-        statusDiv.textContent = (myPl === PLAYER_RED) ? 'Waiting for opponent...' : 'Joined—waiting...';
+        statusDiv.textContent = (myPl === PLAYER_RED ? 'Waiting for opponent...' : 'Joined — waiting...');
       } else {
-        statusDiv.textContent = (currPl === myPl) ? 'Your turn' : "Opponent's turn";
+        statusDiv.textContent = (currPl === myPl ? 'Your turn' : "Opponent's turn");
       }
       updateMatchList();
     });
@@ -225,8 +242,11 @@
     const ref = db.ref(`matches/${matchId}`);
     ref.once('value', snap => {
       const m = snap.val();
-      if (m.owner.id === currentUser.id) ref.remove();
-      else if (m.opponent) ref.update({ opponent: null, status: 'waiting' });
+      if (m.owner.id === currentUser.id) {
+        ref.remove();
+      } else if (m.opponent) {
+        ref.update({ opponent: null, status: 'waiting' });
+      }
     });
     resetGame();
   }
@@ -250,7 +270,8 @@
               <div class="avatar-circle">${m.owner.username[0]}</div>
               <span>${m.owner.username}</span>
             </div>
-            <button>Join</button>`;
+            <button>Join</button>
+          `;
           div.querySelector('button').onclick = () => joinMatch(id);
           matchListDiv.appendChild(div);
         }
@@ -258,12 +279,11 @@
     });
   }
 
+  // UI Events
   usernameInput.oninput = () => usernameSubmit.disabled = !usernameInput.value.trim();
   usernameSubmit.onclick = () => {
     currentUser.username = usernameInput.value.trim();
-    currentUser.id = 'u' + Math.random
-
-().toString(36).substr(2,9);
+    currentUser.id = 'u' + Math.random().toString(36).substr(2,9);
     usernamePrompt.style.display = 'none';
     profileDisplay.textContent = `Logged in as: ${currentUser.username}`;
     el('menu').style.display = 'block';
@@ -272,7 +292,7 @@
 
   el('modeSelect').onchange = e => {
     mode = e.target.value;
-    el('aiDifficultyButtons').style.display = (mode==='ai')?'flex':'none';
+    el('aiDifficultyButtons').style.display = (mode === 'ai' ? 'flex' : 'none');
     resetGame();
     updateMatchList();
   };
@@ -288,32 +308,47 @@
   el('createMatchBtn').onclick = createMatch;
   el('leaveMatchBtn').onclick = leaveMatch;
   el('refreshMatchesBtn').onclick = updateMatchList;
+
   canvas.onclick = e => {
     if (!inMatch || currPl !== myPl) return;
     const rect = canvas.getBoundingClientRect();
     const col = Math.floor((e.clientX - rect.left) / (canvas.width / COLS));
-    const r = place(col, myPl);
+    const r = placePiece(col, myPl);
     if (r < 0) return;
     draw();
-    if (checkWin(myPl)) { statusDiv.textContent = 'You win!'; leaveMatch(); return; }
-    if (isFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); return; }
-    switchTurn();
-    if (mode === 'pvp') sendUpdate();
-    else { statusDiv.textContent = "AI's turn"; setTimeout(aiMove, 500); }
-  };
 
-  function aiMove() {
-    const valid = [];
-    for (let c = 0; c < COLS; c++) if (board[0][c] === PLAYER_NONE) valid.push(c);
-    if (valid.length === 0) return;
-    const col = valid[Math.floor(Math.random() * valid.length)];
-    place(col, PLAYER_YELLOW);
-    draw();
-    if (checkWin(PLAYER_YELLOW)) { statusDiv.textContent = 'AI wins!'; leaveMatch(); return; }
-    if (isFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); return; }
+    if (checkWin(myPl)) {
+      statusDiv.textContent = 'You win!';
+      leaveMatch();
+      return;
+    }
+    if (isBoardFull()) {
+      statusDiv.textContent = 'Draw!';
+      leaveMatch();
+      return;
+    }
     switchTurn();
-    statusDiv.textContent = 'Your turn';
-  }
+    if (mode === 'pvp') {
+      sendUpdate();
+    } else {
+      statusDiv.textContent = "AI's turn";
+      setTimeout(() => {
+        const col2 = Math.floor(Math.random() * COLS);
+        placePiece(col2, PLAYER_YELLOW);
+        draw();
+        if (checkWin(PLAYER_YELLOW)) {
+          statusDiv.textContent = 'AI wins!';
+          leaveMatch();
+        } else if (isBoardFull()) {
+          statusDiv.textContent = 'Draw!';
+          leaveMatch();
+        } else {
+          switchTurn();
+          statusDiv.textContent = 'Your turn';
+        }
+      }, 500);
+    }
+  };
 
   draw();
 })();
