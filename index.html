@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Connect Four</title>
+<title>Connect Four Multiplayer + AI</title>
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -90,12 +90,19 @@
   .matchItem:last-child {
     border-bottom: none;
   }
-  .matchPlayer {
+  .matchPlayers {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
-  .matchPlayer .avatar-circle {
+  .playerEntry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #ffaa00;
+  }
+  .playerEntry .avatar-circle {
     width: 24px;
     height: 24px;
     font-size: 14px;
@@ -117,18 +124,15 @@
     margin-top: 10px;
     display: none;
     gap: 8px;
-    max-width: 600px;
-    width: 100%;
-    justify-content: center;
   }
   #aiDifficultyButtons button {
-    padding: 6px 12px;
+    padding: 4px 8px;
     font-weight: 600;
     border-radius: 4px;
     border: none;
     cursor: pointer;
-    background-color: #444;
-    color: white;
+    background: #444;
+    color: #fff;
   }
   #aiDifficultyButtons button.active {
     background-color: #ffaa00;
@@ -146,7 +150,6 @@
     font-weight: 600;
     min-height: 30px;
   }
-  /* Hide everything except username prompt initially */
   .hide {
     display: none !important;
   }
@@ -191,7 +194,7 @@
 </div>
 
 <!-- AI difficulty -->
-<div id="aiDifficultyButtons" class="hide">
+<div id="aiDifficultyButtons" class="hide" style="max-width: 600px; width: 100%; justify-content: center; gap: 8px;">
   <button data-level="easy">Easy</button>
   <button data-level="normal" class="active">Normal</button>
   <button data-level="hard">Hard</button>
@@ -250,601 +253,712 @@
   const aiBtns = aiDiv.querySelectorAll('button');
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const statusText = document.getElementById('status');
+  const statusDiv = document.getElementById('status');
   const matchListDiv = document.getElementById('matchList');
   const matchesContainer = document.getElementById('matchesContainer');
-  const refreshBtn = document.getElementById('refreshMatchesBtn');
+  const refreshMatchesBtn = document.getElementById('refreshMatchesBtn');
 
-  // Utilities
-  function getAvatarColor(name) {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
-    return colors[Math.abs(hash) % colors.length];
+  // Utils
+  function generateId() {
+    return 'game_' + Math.random().toString(36).slice(2,10);
   }
-
-  function createId() {
-    return 'match_' + Math.random().toString(36).substr(2, 9);
-  }
-
-  function updateUserProfile() {
-    usernameDisplay.textContent = currentUser.username;
-    userAvatarDiv.innerHTML = '';
-    if (currentUser.avatarUrl && currentUser.avatarUrl.startsWith('http')) {
-      const img = document.createElement('img');
-      img.src = currentUser.avatarUrl;
-      img.alt = currentUser.username;
-      userAvatarDiv.appendChild(img);
-      userAvatarDiv.style.backgroundColor = 'transparent';
+  function createAvatarCircle(name, url) {
+    if(url){
+      return `<img src="${url}" alt="${name}" title="${name}"/>`;
     } else {
-      userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
-      userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
+      const initial = name.charAt(0).toUpperCase();
+      return `<div class="avatar-circle">${initial}</div>`;
     }
   }
-
-  function initBoard() {
-    board = Array.from({length: rows}, () => Array(cols).fill(PLAYER_NONE));
-    updateCanvasSize();
-  }
-
-  function updateCanvasSize() {
-    canvas.width = cols * 70;
-    canvas.height = rows * 70;
-    drawBoard();
-  }
-
-  function drawBoard() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ffaa00';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = c * 70;
-        const y = r * 70;
-        ctx.fillStyle = '#1e1e2f';
-        ctx.beginPath();
-        ctx.arc(x + 35, y + 35, 30, 0, 2 * Math.PI);
-        ctx.fill();
-
-        if (board[r][c] === PLAYER_RED) {
-          ctx.fillStyle = '#ff3333';
-          ctx.beginPath();
-          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
-          ctx.fill();
-        } else if (board[r][c] === PLAYER_YELLOW) {
-          ctx.fillStyle = '#ffff66';
-          ctx.beginPath();
-          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
-          ctx.fill();
-        }
-      }
+  function setAvatarDiv(div, name, url){
+    if(url){
+      div.innerHTML = `<img src="${url}" alt="${name}">`;
+    } else {
+      div.textContent = name.charAt(0).toUpperCase();
     }
   }
-
-  function findLowestEmptyRow(col) {
-    for (let r = rows - 1; r >= 0; r--) {
-      if (board[r][col] === PLAYER_NONE) return r;
-    }
-    return -1;
-  }
-
-  function checkWin(player) {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r][c+i] === player)) return true;
-      }
-    }
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r <= rows - 4; r++) {
-        if ([0,1,2,3].every(i => board[r+i][c] === player)) return true;
-      }
-    }
-    for (let r = 0; r <= rows - 4; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r+i][c+i] === player)) return true;
-      }
-    }
-    for (let r = 3; r < rows; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r-i][c+i] === player)) return true;
-      }
-    }
-    return false;
-  }
-
-  function isBoardFull() {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (board[r][c] === PLAYER_NONE) return false;
-      }
-    }
-    return true;
-  }
-
-  // Game management
-  function setStatus(msg) {
-    statusText.textContent = msg;
-  }
-
-  // Matches storage management
   function saveMatches() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
   }
   function loadMatches() {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+    if(raw){
       try {
-        const data = JSON.parse(raw);
-        if (data && typeof data === 'object') {
-          Object.assign(matches, data);
+        const obj = JSON.parse(raw);
+        if(typeof obj === 'object' && obj !== null){
+          for(const key in obj){
+            matches[key] = obj[key];
+          }
         }
-      } catch {
-        // ignore parse error
+      } catch {}
+    }
+  }
+  function clearMatches() {
+    for(const key in matches){
+      delete matches[key];
+    }
+    saveMatches();
+  }
+
+  // Board init and drawing
+  function initBoard() {
+    board = [];
+    for(let r=0;r<rows;r++){
+      board[r] = [];
+      for(let c=0;c<cols;c++){
+        board[r][c] = PLAYER_NONE;
       }
     }
   }
-  function pruneMatches() {
-    for (const id in matches) {
-      if (!matches[id].players || matches[id].players.length === 0) {
-        delete matches[id];
+  function drawBoard(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const slotSize = 70;
+    canvas.width = cols*slotSize;
+    canvas.height = rows*slotSize;
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const x = c*slotSize + slotSize/2;
+        const y = r*slotSize + slotSize/2;
+        ctx.beginPath();
+        ctx.arc(x,y,slotSize/2 - 6,0,Math.PI*2);
+        if(board[r][c] === PLAYER_NONE){
+          ctx.fillStyle = '#29293d';
+        } else if(board[r][c] === PLAYER_RED){
+          ctx.fillStyle = 'red';
+        } else if(board[r][c] === PLAYER_YELLOW){
+          ctx.fillStyle = 'yellow';
+        }
+        ctx.fill();
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
     }
   }
 
-  // UI for matches list
-  function renderMatches() {
-    matchesContainer.innerHTML = '';
-    const visibleMatches = Object.values(matches).filter(m => m.mode === 'pvp' && (!isInMatch || m.id !== gameId));
-    if (visibleMatches.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'no-matches';
-      empty.style.textAlign = 'center';
-      empty.style.color = '#888';
-      empty.textContent = 'No matches available.';
-      matchesContainer.appendChild(empty);
-      return;
-    }
-    visibleMatches.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'matchItem';
-
-      const playersDiv = document.createElement('div');
-      playersDiv.className = 'matchPlayer';
-
-      m.players.forEach(p => {
-        const avatarDiv = document.createElement('div');
-        avatarDiv.className = 'avatar-circle';
-        if (p.avatarUrl && p.avatarUrl.startsWith('http')) {
-          const img = document.createElement('img');
-          img.src = p.avatarUrl;
-          img.alt = p.username;
-          avatarDiv.appendChild(img);
-          avatarDiv.style.backgroundColor = 'transparent';
-        } else {
-          avatarDiv.textContent = p.username.charAt(0).toUpperCase();
-          avatarDiv.style.backgroundColor = getAvatarColor(p.username);
+  // Check for a win
+  function checkWin(player){
+    // horizontal, vertical, diagonal checks
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        if(board[r][c] === player){
+          // horiz
+          if(c+3 < cols && board[r][c+1]===player && board[r][c+2]===player && board[r][c+3]===player) return true;
+          // vert
+          if(r+3 < rows && board[r+1][c]===player && board[r+2][c]===player && board[r+3][c]===player) return true;
+          // diag down-right
+          if(r+3 < rows && c+3 < cols && board[r+1][c+1]===player && board[r+2][c+2]===player && board[r+3][c+3]===player) return true;
+          // diag down-left
+          if(r+3 < rows && c-3 >=0 && board[r+1][c-1]===player && board[r+2][c-2]===player && board[r+3][c-3]===player) return true;
         }
-        playersDiv.appendChild(avatarDiv);
-      });
-
-      div.appendChild(playersDiv);
-
-      const joinBtn = document.createElement('button');
-      joinBtn.textContent = 'Join';
-      joinBtn.disabled = m.players.length >= 2 || isInMatch || m.players.some(p => p.id === currentUser.id);
-      joinBtn.addEventListener('click', () => joinMatch(m.id));
-      div.appendChild(joinBtn);
-
-      matchesContainer.appendChild(div);
-    });
-  }
-
-  // Join a match
-  function joinMatch(id) {
-    if (isInMatch) return;
-    if (!matches[id]) return;
-    const m = matches[id];
-    if (m.players.length >= 2) return;
-    m.players.push({ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl });
-    saveMatches();
-    isInMatch = true;
-    gameId = id;
-    gameMode = m.mode;
-    myPlayer = m.players.length === 1 ? PLAYER_RED : PLAYER_YELLOW;
-    rows = m.rows;
-    cols = m.cols;
-    initBoard();
-    currentPlayer = PLAYER_RED;
-    gameState = 'playing';
-    updateUIOnGameStart();
-    setStatus(`Game started! ${currentPlayer === myPlayer ? "Your turn" : "Opponent's turn"}`);
-    renderMatches();
-  }
-
-  // Create a new match
-  function createMatch() {
-    if (isInMatch) return;
-    rows = parseInt(rowSel.value);
-    cols = parseInt(colSel.value);
-    gameMode = modeSel.value;
-
-    if (rows < 4) rows = 6;
-    if (cols < 4) cols = 7;
-
-    const id = createId();
-    matches[id] = {
-      id,
-      mode: gameMode,
-      rows,
-      cols,
-      players: [{ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }],
-      board: null,
-    };
-    saveMatches();
-
-    isInMatch = true;
-    gameId = id;
-    myPlayer = PLAYER_RED;
-
-    initBoard();
-    currentPlayer = PLAYER_RED;
-    gameState = 'playing';
-    updateUIOnGameStart();
-    setStatus(gameMode === 'ai' ? "Your turn" : "Waiting for opponent to join...");
-    renderMatches();
-
-    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-      setTimeout(aiMove, 500);
+      }
     }
+    return false;
   }
-
-  // Leave the current match
-  function leaveMatch() {
-    if (!isInMatch || !gameId) return;
-    const m = matches[gameId];
-    if (m) {
-      m.players = m.players.filter(p => p.id !== currentUser.id);
-      if (m.players.length === 0) delete matches[gameId];
-      saveMatches();
+  function checkDraw(){
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        if(board[r][c] === PLAYER_NONE) return false;
+      }
     }
-    isInMatch = false;
-    gameId = null;
-    myPlayer = PLAYER_NONE;
-    gameState = 'idle';
-    setStatus('');
-    renderMatches();
-    updateUIOnGameEnd();
+    return true;
   }
 
-  // Canvas click handler
-  canvas.addEventListener('click', e => {
-    if (gameState !== 'playing') return;
-    if (currentPlayer !== myPlayer) return;
+  // Make a move on board
+  function makeMove(col, player){
+    if(gameState !== 'playing') return false;
+    if(player !== currentPlayer) return false;
+    if(col<0 || col>=cols) return false;
+    // find lowest empty slot
+    for(let r=rows-1;r>=0;r--){
+      if(board[r][col] === PLAYER_NONE){
+        board[r][col] = player;
+        return r;
+      }
+    }
+    return false;
+  }
+
+  // Handle canvas clicks
+  function onCanvasClick(e){
+    if(gameState !== 'playing') return;
+    if(myPlayer !== currentPlayer) return;
     const rect = canvas.getBoundingClientRect();
+    const slotSize = 70;
     const x = e.clientX - rect.left;
-    const col = Math.floor(x / 70);
-    if (col < 0 || col >= cols) return;
-    playMove(col);
-  });
-
-  // Play a move for the current player
-  function playMove(col) {
-    if (gameState !== 'playing') return;
-    if (currentPlayer !== myPlayer) return;
-
-    const r = findLowestEmptyRow(col);
-    if (r === -1) return;
-
-    board[r][col] = currentPlayer;
+    const col = Math.floor(x/slotSize);
+    if(col<0 || col>=cols) return;
+    if(board[0][col] !== PLAYER_NONE) return; // full col
+    const row = makeMove(col, myPlayer);
+    if(row === false) return;
     drawBoard();
+    afterMove(myPlayer, col, row);
+  }
 
-    if (checkWin(currentPlayer)) {
-      setStatus(currentPlayer === myPlayer ? 'You win!' : 'You lose!');
+  // After a move, check game end or switch turn
+  function afterMove(player, col, row){
+    if(checkWin(player)){
+      statusDiv.textContent = (player === myPlayer ? "You win!" : (gameMode === 'pvp' ? "Opponent wins!" : "AI wins!"));
       gameState = 'ended';
+      leaveBtn.disabled = false;
       return;
     }
-    if (isBoardFull()) {
-      setStatus("It's a tie!");
+    if(checkDraw()){
+      statusDiv.textContent = "Draw!";
       gameState = 'ended';
+      leaveBtn.disabled = false;
       return;
     }
-
-    currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-    setStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
-
-    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-      setTimeout(aiMove, 300);
+    currentPlayer = (currentPlayer === PLAYER_RED) ? PLAYER_YELLOW : PLAYER_RED;
+    updateStatus();
+    if(gameMode === 'ai' && currentPlayer !== myPlayer && gameState==='playing'){
+      aiMove();
     }
   }
 
-  // AI move logic with minimax and varying depth based on difficulty
-  function aiMove() {
-    if (gameState !== 'playing') return;
-
-    const aiPlayer = currentPlayer;
-    const humanPlayer = myPlayer;
-
-    let depth;
-    switch (aiDifficulty) {
-      case 'easy': depth = 2; break;
-      case 'normal': depth = 4; break;
-      case 'hard': depth = 6; break;
-      case 'insane': depth = 8; break;
-      case 'impossible': depth = 10; break;
-      default: depth = 4;
-    }
-
-    // Get best move via minimax
-    const move = findBestMove(board, aiPlayer, humanPlayer, depth);
-    if (move === -1) {
-      // No valid moves
-      setStatus("It's a tie!");
-      gameState = 'ended';
+  // Update status text
+  function updateStatus(){
+    if(gameState !== 'playing'){
       return;
     }
-
-    const row = findLowestEmptyRow(move);
-    if (row === -1) {
-      setStatus("It's a tie!");
-      gameState = 'ended';
-      return;
-    }
-
-    board[row][move] = aiPlayer;
-    drawBoard();
-
-    if (checkWin(aiPlayer)) {
-      setStatus('AI wins!');
-      gameState = 'ended';
-      return;
-    }
-    if (isBoardFull()) {
-      setStatus("It's a tie!");
-      gameState = 'ended';
-      return;
-    }
-
-    currentPlayer = humanPlayer;
-    setStatus("Your turn");
-  }
-
-  // Evaluation function for board positions
-  function evaluateBoard(bd, ai, human) {
-    let score = 0;
-
-    function countSequence(line, player) {
-      let count = 0, blocks = 0;
-      for (let i = 0; i < line.length; i++) {
-        if (line[i] === player) count++;
-        else if (line[i] !== PLAYER_NONE) blocks++;
+    if(gameMode === 'pvp'){
+      if(currentPlayer === myPlayer){
+        statusDiv.textContent = "Your turn!";
+      } else {
+        statusDiv.textContent = "Opponent's turn...";
       }
-      if (blocks > 0 && count < 4) return 0;
-      if (count === 4) return 10000;
-      if (count === 3) return 100;
-      if (count === 2) return 10;
-      if (count === 1) return 1;
-      return 0;
-    }
-
-    // Score horizontal, vertical and diagonals for ai and human, weight them
-    function scorePosition(player) {
-      let total = 0;
-
-      // Horizontal
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c <= cols - 4; c++) {
-          const line = [bd[r][c], bd[r][c+1], bd[r][c+2], bd[r][c+3]];
-          total += countSequence(line, player);
-        }
-      }
-      // Vertical
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r <= rows - 4; r++) {
-          const line = [bd[r][c], bd[r+1][c], bd[r+2][c], bd[r+3][c]];
-          total += countSequence(line, player);
-        }
-      }
-      // Diagonal down-right
-      for (let r = 0; r <= rows - 4; r++) {
-        for (let c = 0; c <= cols - 4; c++) {
-          const line = [bd[r][c], bd[r+1][c+1], bd[r+2][c+2], bd[r+3][c+3]];
-          total += countSequence(line, player);
-        }
-      }
-      // Diagonal up-right
-      for (let r = 3; r < rows; r++) {
-        for (let c = 0; c <= cols - 4; c++) {
-          const line = [bd[r][c], bd[r-1][c+1], bd[r-2][c+2], bd[r-3][c+3]];
-          total += countSequence(line, player);
-        }
-      }
-      return total;
-    }
-
-    score += scorePosition(ai);
-    score -= scorePosition(human) * 1.5; // More weight on blocking human
-
-    return score;
-  }
-
-  // Minimax with alpha-beta pruning
-  function minimax(bd, depth, maximizingPlayer, alpha, beta, ai, human) {
-    if (checkWin(ai)) return { score: 1000000 };
-    if (checkWin(human)) return { score: -1000000 };
-    if (depth === 0 || isBoardFull()) return { score: evaluateBoard(bd, ai, human) };
-
-    const validCols = [];
-    for (let c = 0; c < cols; c++) {
-      if (findLowestEmptyRowCol(bd, c) !== -1) validCols.push(c);
-    }
-    if (validCols.length === 0) return { score: 0 };
-
-    if (maximizingPlayer) {
-      let maxEval = -Infinity;
-      let bestCol = validCols[0];
-      for (const col of validCols) {
-        const row = findLowestEmptyRowCol(bd, col);
-        bd[row][col] = ai;
-        const evalResult = minimax(bd, depth - 1, false, alpha, beta, ai, human);
-        bd[row][col] = PLAYER_NONE;
-        if (evalResult.score > maxEval) {
-          maxEval = evalResult.score;
-          bestCol = col;
-        }
-        alpha = Math.max(alpha, evalResult.score);
-        if (beta <= alpha) break;
-      }
-      return { score: maxEval, column: bestCol };
     } else {
-      let minEval = Infinity;
-      let bestCol = validCols[0];
-      for (const col of validCols) {
-        const row = findLowestEmptyRowCol(bd, col);
-        bd[row][col] = human;
-        const evalResult = minimax(bd, depth - 1, true, alpha, beta, ai, human);
-        bd[row][col] = PLAYER_NONE;
-        if (evalResult.score < minEval) {
-          minEval = evalResult.score;
-          bestCol = col;
-        }
-        beta = Math.min(beta, evalResult.score);
-        if (beta <= alpha) break;
-      }
-      return { score: minEval, column: bestCol };
+      statusDiv.textContent = (currentPlayer === myPlayer) ? "Your turn!" : "AI is thinking...";
     }
   }
 
-  // Find lowest empty row for a specific board (used inside minimax)
-  function findLowestEmptyRowCol(bd, col) {
-    for (let r = rows - 1; r >= 0; r--) {
-      if (bd[r][col] === PLAYER_NONE) return r;
+  // AI logic by difficulty
+  async function aiMove(){
+    // Wait a bit to simulate thinking
+    statusDiv.textContent = "AI is thinking...";
+    await new Promise(r=>setTimeout(r, 700));
+    // Pick a column according to difficulty
+    let col;
+    switch(aiDifficulty){
+      case 'easy':
+        col = aiRandomMove();
+        break;
+      case 'normal':
+        col = aiNormalMove();
+        break;
+      case 'hard':
+        col = aiHardMove();
+        break;
+      case 'insane':
+        col = aiInsaneMove();
+        break;
+      case 'impossible':
+        col = aiImpossibleMove();
+        break;
+      default:
+        col = aiRandomMove();
+    }
+    const row = makeMove(col, PLAYER_YELLOW);
+    drawBoard();
+    afterMove(PLAYER_YELLOW, col, row);
+  }
+
+  // AI move helpers (very simple heuristics)
+
+  // Easy: random valid column
+  function aiRandomMove(){
+    const validCols = [];
+    for(let c=0;c<cols;c++){
+      if(board[0][c]===PLAYER_NONE) validCols.push(c);
+    }
+    return validCols[Math.floor(Math.random()*validCols.length)];
+  }
+
+  // Normal: try to win if possible, else random
+  function aiNormalMove(){
+    // Try winning move
+    for(let c=0;c<cols;c++){
+      if(board[0][c]!==PLAYER_NONE) continue;
+      let r = getAvailableRow(c);
+      if(r === -1) continue;
+      board[r][c] = PLAYER_YELLOW;
+      if(checkWin(PLAYER_YELLOW)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
+    }
+    // Else block opponent if possible
+    for(let c=0;c<cols;c++){
+      if(board[0][c]!==PLAYER_NONE) continue;
+      let r = getAvailableRow(c);
+      if(r === -1) continue;
+      board[r][c] = PLAYER_RED;
+      if(checkWin(PLAYER_RED)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
+    }
+    return aiRandomMove();
+  }
+
+  // Hard: normal + prefer center column if available
+  function aiHardMove(){
+    const center = Math.floor(cols/2);
+    if(board[0][center] === PLAYER_NONE){
+      return center;
+    }
+    return aiNormalMove();
+  }
+
+  // Insane: tries to prevent player winning, tries winning, then random
+  function aiInsaneMove(){
+    // Block opponent winning two moves ahead
+    for(let c=0;c<cols;c++){
+      if(board[0][c]!==PLAYER_NONE) continue;
+      let r = getAvailableRow(c);
+      if(r === -1) continue;
+      board[r][c] = PLAYER_RED;
+      let willWin = false;
+      for(let cc=0;cc<cols;cc++){
+        if(board[0][cc]!==PLAYER_NONE) continue;
+        let rr = getAvailableRow(cc);
+        if(rr === -1) continue;
+        board[rr][cc] = PLAYER_RED;
+        if(checkWin(PLAYER_RED)){
+          willWin = true;
+        }
+        board[rr][cc] = PLAYER_NONE;
+      }
+      board[r][c] = PLAYER_NONE;
+      if(willWin){
+        return c;
+      }
+    }
+    return aiHardMove();
+  }
+
+  // Impossible: perfect play - minimax or immediate block/win (simplified)
+  function aiImpossibleMove(){
+    // Try winning move
+    for(let c=0;c<cols;c++){
+      if(board[0][c]!==PLAYER_NONE) continue;
+      let r = getAvailableRow(c);
+      if(r === -1) continue;
+      board[r][c] = PLAYER_YELLOW;
+      if(checkWin(PLAYER_YELLOW)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
+    }
+    // Block opponent winning move
+    for(let c=0;c<cols;c++){
+      if(board[0][c]!==PLAYER_NONE) continue;
+      let r = getAvailableRow(c);
+      if(r === -1) continue;
+      board[r][c] = PLAYER_RED;
+      if(checkWin(PLAYER_RED)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
+    }
+    // Center column preferred
+    const center = Math.floor(cols/2);
+    if(board[0][center] === PLAYER_NONE) return center;
+
+    // Else fallback to normal
+    return aiNormalMove();
+  }
+
+  function getAvailableRow(col){
+    for(let r=rows-1;r>=0;r--){
+      if(board[r][col] === PLAYER_NONE) return r;
     }
     return -1;
   }
 
-  // Find best move for AI
-  function findBestMove(bd, ai, human, depth) {
-    // If easy or normal: try random move sometimes for variability
-    if (aiDifficulty === 'easy') {
-      // 50% random move for easy
-      if (Math.random() < 0.5) {
-        const validCols = [];
-        for (let c = 0; c < cols; c++) {
-          if (findLowestEmptyRowCol(bd, c) !== -1) validCols.push(c);
-        }
-        if (validCols.length > 0) {
-          return validCols[Math.floor(Math.random() * validCols.length)];
+  // Multiplayer match management (localStorage-based for demo)
+  function saveMatch(match){
+    matches[match.id] = match;
+    saveMatches();
+    renderMatchList();
+  }
+  function deleteMatch(id){
+    delete matches[id];
+    saveMatches();
+    renderMatchList();
+  }
+
+  // Render available matches for PvP
+  function renderMatchList(){
+    if(isInMatch) {
+      matchListDiv.classList.add('hide');
+      return;
+    }
+    matchListDiv.classList.remove('hide');
+    matchesContainer.innerHTML = '';
+    let foundAny = false;
+    for(const id in matches){
+      const m = matches[id];
+      if(m.mode !== 'pvp') continue;
+      if(m.status === 'ended') continue;
+      foundAny = true;
+      const div = document.createElement('div');
+      div.classList.add('matchItem');
+      const playerDiv = document.createElement('div');
+      playerDiv.classList.add('matchPlayers');
+      // Owner
+      const ownerDiv = document.createElement('div');
+      ownerDiv.classList.add('playerEntry');
+      ownerDiv.innerHTML = `
+        <div class="avatar-circle">${m.owner.username.charAt(0).toUpperCase()}</div>
+        <span>${m.owner.username}</span>
+      `;
+      playerDiv.appendChild(ownerDiv);
+      // Opponent if exists
+      if(m.opponent){
+        const oppDiv = document.createElement('div');
+        oppDiv.classList.add('playerEntry');
+        oppDiv.innerHTML = `
+          <div class="avatar-circle">${m.opponent.username.charAt(0).toUpperCase()}</div>
+          <span>${m.opponent.username}</span>
+        `;
+        playerDiv.appendChild(oppDiv);
+      }
+      div.appendChild(playerDiv);
+
+      // Status text
+      const statusSpan = document.createElement('span');
+      if(!m.opponent){
+        statusSpan.textContent = 'Waiting for opponent to join...';
+      } else {
+        statusSpan.textContent = `${m.opponent.username} joined! Your turn!`;
+      }
+      div.appendChild(statusSpan);
+
+      // Join button if available
+      if(!m.opponent && currentUser.id !== m.owner.id){
+        const joinBtn = document.createElement('button');
+        joinBtn.textContent = 'Join';
+        joinBtn.onclick = () => {
+          joinMatch(id);
+        };
+        div.appendChild(joinBtn);
+      }
+      matchesContainer.appendChild(div);
+    }
+    if(!foundAny){
+      const noMatchesDiv = document.createElement('div');
+      noMatchesDiv.classList.add('no-matches');
+      noMatchesDiv.textContent = 'No matches available.';
+      matchesContainer.appendChild(noMatchesDiv);
+    }
+  }
+
+  // Create a new match
+  function createMatch(){
+    if(isInMatch) return;
+    gameId = generateId();
+    currentPlayer = PLAYER_RED;
+    initBoard();
+    drawBoard();
+    statusDiv.textContent = (myPlayer === PLAYER_RED) ? "Your turn!" : "Opponent's turn...";
+    isInMatch = true;
+    gameState = 'playing';
+    leaveBtn.disabled = false;
+
+    if(gameMode === 'pvp'){
+      matches[gameId] = {
+        id: gameId,
+        owner: {...currentUser},
+        opponent: null,
+        board: JSON.parse(JSON.stringify(board)),
+        currentPlayer: PLAYER_RED,
+        mode: 'pvp',
+        status: 'waiting',
+      };
+      saveMatches();
+      renderMatchList();
+      matchListDiv.classList.add('hide');
+      canvas.classList.remove('hide');
+      statusDiv.classList.remove('hide');
+    } else {
+      // AI Mode
+      canvas.classList.remove('hide');
+      statusDiv.classList.remove('hide');
+      isInMatch = true;
+      gameState = 'playing';
+      myPlayer = PLAYER_RED;
+      updateStatus();
+    }
+  }
+
+  // Join existing PvP match
+  function joinMatch(id){
+    if(isInMatch) return;
+    const match = matches[id];
+    if(!match) return alert('Match no longer exists.');
+    if(match.opponent) return alert('Match already has opponent.');
+    match.opponent = {...currentUser};
+    match.status = 'playing';
+    saveMatches();
+    gameId = id;
+    board = JSON.parse(JSON.stringify(match.board));
+    currentPlayer = match.currentPlayer;
+    myPlayer = PLAYER_YELLOW;
+    isInMatch = true;
+    gameState = 'playing';
+
+    matchListDiv.classList.add('hide');
+    canvas.classList.remove('hide');
+    statusDiv.classList.remove('hide');
+    leaveBtn.disabled = false;
+    drawBoard();
+
+    // Notify owner (simulate)
+    updateStatus();
+
+    // Start the game, owner’s turn is red, your turn yellow
+    if(currentPlayer === myPlayer) {
+      statusDiv.textContent = "Your turn!";
+    } else {
+      statusDiv.textContent = "Opponent's turn...";
+    }
+  }
+
+  // Leave match
+  function leaveMatch(){
+    if(!isInMatch) return;
+    if(gameMode === 'pvp'){
+      // Remove self from match
+      if(matches[gameId]){
+        if(matches[gameId].owner.id === currentUser.id){
+          // Owner leaves, delete match
+          deleteMatch(gameId);
+        } else if(matches[gameId].opponent && matches[gameId].opponent.id === currentUser.id){
+          // Opponent leaves
+          matches[gameId].opponent = null;
+          matches[gameId].status = 'waiting';
+          saveMatches();
+          renderMatchList();
         }
       }
     }
-
-    const { column } = minimax(bd, depth, true, -Infinity, Infinity, ai, human);
-    if (column === undefined) return -1;
-    return column;
-  }
-
-  // UI updates on game start
-  function updateUIOnGameStart() {
-    header.classList.remove('hide');
-    menu.classList.remove('hide');
-    canvas.classList.remove('hide');
-    statusText.classList.remove('hide');
-    matchListDiv.classList.add('hide');
-    usernamePrompt.classList.add('hide');
-    leaveBtn.disabled = false;
-
-    if (gameMode === 'ai') {
-      aiDiv.style.display = 'flex';
-    } else {
-      aiDiv.style.display = 'none';
-    }
-  }
-
-  // UI updates on game end or leaving
-  function updateUIOnGameEnd() {
+    isInMatch = false;
+    gameId = null;
+    gameState = 'idle';
+    myPlayer = PLAYER_NONE;
+    currentPlayer = PLAYER_RED;
+    initBoard();
+    drawBoard();
+    statusDiv.textContent = '';
     leaveBtn.disabled = true;
     canvas.classList.add('hide');
-    statusText.textContent = '';
-    if (!isInMatch) {
+    if(gameMode === 'pvp'){
       matchListDiv.classList.remove('hide');
-      aiDiv.style.display = 'none';
-      menu.classList.remove('hide');
+      renderMatchList();
     }
   }
 
-  // Fill rows and cols dropdowns
-  function populateRowColSelectors() {
+  // Handle board updates after player move in PvP
+  function updateMatchBoard(col, row){
+    if(!gameId) return;
+    if(gameMode !== 'pvp') return;
+    if(!matches[gameId]) return;
+    matches[gameId].board = JSON.parse(JSON.stringify(board));
+    matches[gameId].currentPlayer = currentPlayer;
+    saveMatches();
+    renderMatchList();
+  }
+
+  // User move in PvP mode
+  function playerMovePvP(col){
+    if(gameState !== 'playing') return;
+    if(myPlayer !== currentPlayer) return;
+    if(board[0][col] !== PLAYER_NONE) return;
+    const row = makeMove(col, myPlayer);
+    if(row === false) return;
+    drawBoard();
+    updateMatchBoard(col, row);
+    afterMove(myPlayer, col, row);
+  }
+
+  // Listen for storage events to sync matches and moves
+  window.addEventListener('storage', (e) => {
+    if(e.key === STORAGE_KEY){
+      loadMatches();
+      if(gameMode === 'pvp' && isInMatch && matches[gameId]){
+        const match = matches[gameId];
+        if(match.opponent && myPlayer === PLAYER_RED){
+          // Opponent joined
+          statusDiv.textContent = `${match.opponent.username} joined! Your turn!`;
+          matchListDiv.classList.add('hide');
+          if(gameState !== 'playing'){
+            gameState = 'playing';
+            leaveBtn.disabled = false;
+          }
+        }
+        if(match.board){
+          // Update board state for PvP
+          board = JSON.parse(JSON.stringify(match.board));
+          currentPlayer = match.currentPlayer;
+          drawBoard();
+          updateStatus();
+        }
+      }
+      renderMatchList();
+    }
+  });
+
+  // Canvas click handler for PvP and AI
+  canvas.addEventListener('click', (e) => {
+    if(gameState !== 'playing') return;
+    if(gameMode === 'pvp'){
+      playerMovePvP(Math.floor((e.clientX - canvas.getBoundingClientRect().left)/70));
+    } else if(gameMode === 'ai'){
+      if(myPlayer === currentPlayer){
+        const col = Math.floor((e.clientX - canvas.getBoundingClientRect().left)/70);
+        if(col < 0 || col >= cols) return;
+        if(board[0][col] !== PLAYER_NONE) return;
+        const row = makeMove(col, myPlayer);
+        if(row === false) return;
+        drawBoard();
+        afterMove(myPlayer, col, row);
+      }
+    }
+  });
+
+  // Fill rows and cols selects
+  function fillRowsCols(){
     rowSel.innerHTML = '';
     colSel.innerHTML = '';
-    for (let r = 4; r <= 10; r++) {
-      const opt = document.createElement('option');
-      opt.value = r;
-      opt.textContent = r;
-      if (r === rows) opt.selected = true;
-      rowSel.appendChild(opt);
+    for(let i=4;i<=8;i++){
+      const rOpt = document.createElement('option');
+      rOpt.value = i;
+      rOpt.textContent = i;
+      if(i === rows) rOpt.selected = true;
+      rowSel.appendChild(rOpt);
+
+      const cOpt = document.createElement('option');
+      cOpt.value = i;
+      cOpt.textContent = i;
+      if(i === cols) cOpt.selected = true;
+      colSel.appendChild(cOpt);
     }
-    for (let c = 4; c <= 10; c++) {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      if (c === cols) opt.selected = true;
-      colSel.appendChild(opt);
+  }
+
+  // Update mode change
+  function onModeChange(){
+    gameMode = modeSel.value;
+    if(gameMode === 'ai'){
+      aiDiv.style.display = 'flex';
+      matchListDiv.classList.add('hide');
+    } else {
+      aiDiv.style.display = 'none';
+      if(!isInMatch) matchListDiv.classList.remove('hide');
     }
   }
 
   // AI difficulty button handlers
-  aiBtns.forEach(btn => {
+  aiBtns.forEach(btn=>{
     btn.addEventListener('click', () => {
-      aiBtns.forEach(b => b.classList.remove('active'));
+      aiBtns.forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      aiDifficulty = btn.dataset.level;
+      aiDifficulty = btn.getAttribute('data-level');
     });
   });
 
-  // Username prompt handlers
+  // Username input validation
   usernameInput.addEventListener('input', () => {
     usernameSubmit.disabled = usernameInput.value.trim().length === 0;
   });
   usernameSubmit.addEventListener('click', () => {
     const name = usernameInput.value.trim();
-    if (!name) return;
+    if(!name) return;
     currentUser.username = name;
     currentUser.avatarUrl = avatarUrlInput.value.trim() || null;
-    currentUser.id = 'user_' + Math.random().toString(36).substr(2, 9);
-    updateUserProfile();
+    currentUser.id = generateId(); // Unique id per session
 
     usernamePrompt.classList.add('hide');
     header.classList.remove('hide');
     menu.classList.remove('hide');
     matchListDiv.classList.remove('hide');
-    renderMatches();
-    populateRowColSelectors();
+
+    usernameDisplay.textContent = currentUser.username;
+    if(currentUser.avatarUrl){
+      userAvatarDiv.innerHTML = `<img src="${currentUser.avatarUrl}" alt="${currentUser.username}">`;
+    } else {
+      userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
+    }
+    fillRowsCols();
+    renderMatchList();
   });
 
-  // Button handlers
-  createBtn.addEventListener('click', createMatch);
-  leaveBtn.addEventListener('click', leaveMatch);
-  refreshBtn.addEventListener('click', () => {
-    loadMatches();
-    pruneMatches();
-    renderMatches();
+  // Mode select change
+  modeSel.addEventListener('change', () => {
+    onModeChange();
   });
 
-  // Initialize app UI state
-  function init() {
-    usernameSubmit.disabled = true;
-    header.classList.add('hide');
-    menu.classList.add('hide');
-    canvas.classList.add('hide');
-    statusText.classList.add('hide');
-    matchListDiv.classList.add('hide');
-    aiDiv.style.display = 'none';
+  // Rows, cols change handlers
+  rowSel.addEventListener('change', () => {
+    rows = parseInt(rowSel.value,10);
+    initBoard();
+    drawBoard();
+  });
+  colSel.addEventListener('change', () => {
+    cols = parseInt(colSel.value,10);
+    initBoard();
+    drawBoard();
+  });
+
+  // Create button
+  createBtn.addEventListener('click', () => {
+    rows = parseInt(rowSel.value,10);
+    cols = parseInt(colSel.value,10);
+    gameMode = modeSel.value;
+    myPlayer = PLAYER_RED;
+    initBoard();
+    drawBoard();
+    createMatch();
+    if(gameMode === 'pvp'){
+      matchListDiv.classList.add('hide');
+    } else {
+      aiDiv.style.display = 'flex';
+    }
+    statusDiv.classList.remove('hide');
+    leaveBtn.disabled = false;
+  });
+
+  // Leave button
+  leaveBtn.addEventListener('click', () => {
+    leaveMatch();
+    if(!isInMatch){
+      matchListDiv.classList.remove('hide');
+      statusDiv.classList.add('hide');
+      canvas.classList.add('hide');
+    }
+  });
+
+  // Refresh matches button
+  refreshMatchesBtn.addEventListener('click', () => {
     loadMatches();
-    pruneMatches();
+    renderMatchList();
+  });
+
+  // Initialize
+  function init(){
+    loadMatches();
+    initBoard();
+    drawBoard();
+    updateStatus();
+    onModeChange();
   }
+
   init();
 
 })();
