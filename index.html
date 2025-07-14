@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Connect Four</title>
 <style>
-  /* ... keep all your existing styles unchanged ... */
+  /* Your existing CSS here, unchanged */
   * {
     box-sizing: border-box;
   }
@@ -292,32 +292,31 @@ document.addEventListener("DOMContentLoaded", () => {
   let aiDifficulty = 'normal';
   let matches = {}; // global matches datastore simulation
 
-  // Discord Activity user profile
+  // Discord Embedded SDK user profile
   let currentUser = {
     id: 'local_user_' + Math.random().toString(36).substr(2, 6),
     username: 'Guest',
     avatar: 'https://via.placeholder.com/32'
   };
 
-  function initDiscord() {
-    if (typeof DiscordSDK !== 'undefined') {
-      DiscordSDK.ready().then(() => {
-        DiscordSDK.commands.getUser().then(user => {
-          currentUser = {
-            id: user.id,
-            username: user.username,
-            avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 'https://via.placeholder.com/32'
-          };
-          updateUserProfile();
-          loadMatchesFromStorage(); // load global matches after user ready
-        });
-      }).catch(() => {
-        // Fallback
+  // Initialize Discord Embedded SDK
+  async function initDiscord() {
+    if (window.Discord) {
+      try {
+        await Discord.init();
+        const user = await Discord.getUser();
+        currentUser = {
+          id: user.id,
+          username: user.username,
+          avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 'https://via.placeholder.com/32'
+        };
         updateUserProfile();
         loadMatchesFromStorage();
-      });
+      } catch {
+        updateUserProfile();
+        loadMatchesFromStorage();
+      }
     } else {
-      // No Discord SDK found fallback
       updateUserProfile();
       loadMatchesFromStorage();
     }
@@ -344,20 +343,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function cleanupOldMatches() {
-    // Remove matches older than 5 minutes (300000 ms)
     const now = Date.now();
+    let changed = false;
     for (const id in matches) {
       if (now - matches[id].created > 300000) {
         delete matches[id];
+        changed = true;
       }
     }
-    saveMatchesToStorage();
-  }
-
-  function broadcastUpdate() {
-    // For demo, broadcast updates by saving to localStorage
-    saveMatchesToStorage();
-    renderMatchList();
+    if (changed) saveMatchesToStorage();
   }
 
   function toggleAIDifficulty(show) {
@@ -395,11 +389,9 @@ document.addEventListener("DOMContentLoaded", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for(let r=0; r<rows; r++) {
       for(let c=0; c<cols; c++) {
-        // Draw slots
         ctx.fillStyle = '#222';
         ctx.fillRect(c*70, r*70, 70, 70);
 
-        // Draw circle for slot
         ctx.beginPath();
         ctx.arc(c*70 + 35, r*70 + 35, 28, 0, 2*Math.PI);
         if (board[r][c] === PLAYER_RED) ctx.fillStyle = '#ff4444';
@@ -418,26 +410,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function checkWin(player) {
-    // Horizontal, vertical, diagonal check
     for(let r=0; r<rows; r++) {
       for(let c=0; c<cols; c++) {
         if (board[r][c] !== player) continue;
-        // Horizontal
         if (c + 3 < cols &&
             board[r][c+1] === player &&
             board[r][c+2] === player &&
             board[r][c+3] === player) return true;
-        // Vertical
         if (r + 3 < rows &&
             board[r+1][c] === player &&
             board[r+2][c] === player &&
             board[r+3][c] === player) return true;
-        // Diagonal down-right
         if (r + 3 < rows && c + 3 < cols &&
             board[r+1][c+1] === player &&
             board[r+2][c+2] === player &&
             board[r+3][c+3] === player) return true;
-        // Diagonal up-right
         if (r - 3 >= 0 && c + 3 < cols &&
             board[r-1][c+1] === player &&
             board[r-2][c+2] === player &&
@@ -456,7 +443,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // Simulate AI move (random)
   function aiMove() {
     let availableCols = [];
     for(let c=0; c<cols; c++) {
@@ -522,7 +508,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const col = Math.floor(x / 70);
 
     if (gameMode === 'pvp') {
-      // In PvP mode, local only, just handle move
       handlePlayerMove(col);
     }
   });
@@ -556,6 +541,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function createGame() {
     if (gameState === 'playing' || gameState === 'waiting') return;
+
+    if (gameId) {
+      // Leave previous game to prevent multiple matches owned
+      leaveGame();
+    }
 
     gameId = generateGameId();
     currentGame = {
@@ -597,12 +587,44 @@ document.addEventListener("DOMContentLoaded", () => {
     renderMatchList();
   }
 
+  function joinGame(id) {
+    if (!matches[id]) return alert("Match not found or expired.");
+    if (matches[id].ownerId === currentUser.id) return alert("You cannot join your own match.");
+    if (gameState === 'playing') return alert("You are already in a game.");
+
+    if (gameId) {
+      leaveGame(); // leave any existing game first, which deletes it
+    }
+
+    gameId = id;
+    currentGame = matches[id];
+    myPlayer = PLAYER_YELLOW; // joiner is yellow
+    rows = currentGame.rows;
+    cols = currentGame.cols;
+    gameMode = currentGame.mode;
+
+    initBoard();
+    gameState = 'playing';
+    currentPlayer = PLAYER_RED; // owner starts first
+    setStatus("Joined game. Red player's turn.");
+    updateUIButtons();
+
+    // Remove the match from available (mark as started)
+    delete matches[id];
+    saveMatchesToStorage();
+    renderMatchList();
+  }
+
   function renderMatchList() {
     matchesContainer.innerHTML = '';
     const ids = Object.keys(matches);
 
-    // Filter out your own matches
-    const filteredIds = ids.filter(id => matches[id].ownerId !== currentUser.id);
+    // Remove expired and your own matches
+    cleanupOldMatches();
+
+    const filteredIds = ids.filter(id => {
+      return matches[id] && matches[id].ownerId !== currentUser.id;
+    });
 
     if (filteredIds.length === 0) {
       matchesContainer.innerHTML = '<div class="no-matches">No matches available.</div>';
@@ -611,13 +633,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     filteredIds.forEach(id => {
       const match = matches[id];
-
-      // Skip expired matches (older than 5 mins)
-      if (Date.now() - match.created > 300000) {
-        delete matches[id];
-        saveMatchesToStorage();
-        return;
-      }
 
       const div = document.createElement('div');
       div.className = 'matchItem';
@@ -648,30 +663,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function joinGame(id) {
-    if (!matches[id]) return alert("Match not found or expired.");
-    if (matches[id].ownerId === currentUser.id) return alert("You cannot join your own match.");
-    if (gameState === 'playing') return alert("You are already in a game.");
-
-    gameId = id;
-    currentGame = matches[id];
-    myPlayer = PLAYER_YELLOW; // joiner is yellow
-    rows = currentGame.rows;
-    cols = currentGame.cols;
-    gameMode = currentGame.mode;
-
-    initBoard();
-    gameState = 'playing';
-    currentPlayer = PLAYER_RED; // owner starts first
-    setStatus("Joined game. Red player's turn.");
-    updateUIButtons();
-
-    // Optionally remove the match from available (or mark as started)
-    delete matches[id];
-    saveMatchesToStorage();
-    renderMatchList();
-  }
-
   refreshBtn.addEventListener('click', () => {
     loadMatchesFromStorage();
     setStatus('Match list refreshed.');
@@ -680,7 +671,6 @@ document.addEventListener("DOMContentLoaded", () => {
   createBtn.addEventListener('click', createGame);
   leaveBtn.addEventListener('click', leaveGame);
 
-  // Populate rows and cols selects
   function populateSelects() {
     rowSel.innerHTML = '';
     colSel.innerHTML = '';
@@ -706,5 +696,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 </script>
+
+<!-- Discord Embedded SDK must be loaded separately for Discord.init and Discord.getUser() -->
+<script src="https://discord.com/assets/sdk.js"></script>
+
 </body>
 </html>
