@@ -59,8 +59,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <script>
-(function initializeGame() {
-  // Firebase config
+function initializeGame() {
   const config = {
     apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
     authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
@@ -88,7 +87,6 @@
   const usernameInput = el('usernameInput');
   const usernameSubmit = el('usernameSubmit');
   const profileDisplay = el('profileDisplay');
-  const menu = el('menu');
   const canvas = el('canvas');
   const ctx = canvas.getContext('2d');
   const statusDiv = el('status');
@@ -120,10 +118,10 @@
     for (let r = ROWS - 1; r >= 0; r--) {
       if (board[r][col] === PLAYER_NONE) {
         board[r][col] = player;
-        return r;
+        return true;
       }
     }
-    return -1;
+    return false;
   }
 
   function checkWin(player) {
@@ -156,8 +154,8 @@
   }
 
   function resetGame() {
-    for (let r=0; r<ROWS; r++) {
-      for (let c=0; c<COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
         board[r][c] = PLAYER_NONE;
       }
     }
@@ -187,14 +185,7 @@
     currPl = PLAYER_RED;
     const ref = db.ref('matches').push();
     matchId = ref.key;
-    const data = {
-      owner: currentUser,
-      board,
-      currPl,
-      status: 'waiting',
-      mode
-    };
-    ref.set(data);
+    ref.set({ owner: currentUser, board, currPl, status: 'waiting', mode });
     listenToMatch();
     statusDiv.textContent = 'Waiting for opponent...';
     updateMatchList();
@@ -218,13 +209,9 @@
   }
 
   function listenToMatch() {
-    const ref = db.ref(`matches/${matchId}`);
-    ref.on('value', snap => {
+    db.ref(`matches/${matchId}`).on('value', snap => {
       const m = snap.val();
-      if (!m) {
-        resetGame();
-        return;
-      }
+      if (!m) { resetGame(); return; }
       m.board.forEach((row, r) => row.forEach((v, c) => { board[r][c] = v; }));
       currPl = m.currPl;
       draw();
@@ -242,25 +229,18 @@
     const ref = db.ref(`matches/${matchId}`);
     ref.once('value', snap => {
       const m = snap.val();
-      if (m.owner.id === currentUser.id) {
-        ref.remove();
-      } else if (m.opponent) {
-        ref.update({ opponent: null, status: 'waiting' });
-      }
+      if (m.owner.id === currentUser.id) ref.remove();
+      else if (m.opponent) ref.update({ opponent: null, status: 'waiting' });
     });
     resetGame();
   }
 
   function updateMatchList() {
-    if (mode !== 'pvp') {
-      matchListDiv.style.display = 'none';
-      return;
-    }
+    matchListDiv.innerHTML = '';
+    if (mode !== 'pvp') { matchListDiv.style.display = 'none'; return; }
     matchListDiv.style.display = 'block';
-    matchListDiv.innerHTML = '<strong>Available matches:</strong><br>';
     db.ref('matches').once('value', snap => {
       const all = snap.val() || {};
-      matchListDiv.innerHTML = '<strong>Available matches:</strong><br>';
       Object.entries(all).forEach(([id, m]) => {
         if (m.status === 'waiting' && m.owner.id !== currentUser.id) {
           const div = document.createElement('div');
@@ -279,7 +259,6 @@
     });
   }
 
-  // UI Events
   usernameInput.oninput = () => usernameSubmit.disabled = !usernameInput.value.trim();
   usernameSubmit.onclick = () => {
     currentUser.username = usernameInput.value.trim();
@@ -313,45 +292,29 @@
     if (!inMatch || currPl !== myPl) return;
     const rect = canvas.getBoundingClientRect();
     const col = Math.floor((e.clientX - rect.left) / (canvas.width / COLS));
-    const r = placePiece(col, myPl);
-    if (r < 0) return;
+    if (!placePiece(col, myPl)) return;
     draw();
-
-    if (checkWin(myPl)) {
-      statusDiv.textContent = 'You win!';
-      leaveMatch();
-      return;
-    }
-    if (isBoardFull()) {
-      statusDiv.textContent = 'Draw!';
-      leaveMatch();
-      return;
-    }
+    if (checkWin(myPl)) { statusDiv.textContent = 'You win!'; leaveMatch(); return; }
+    if (isBoardFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); return; }
     switchTurn();
-    if (mode === 'pvp') {
-      sendUpdate();
-    } else {
+    if (mode === 'pvp') sendUpdate();
+    else {
       statusDiv.textContent = "AI's turn";
       setTimeout(() => {
-        const col2 = Math.floor(Math.random() * COLS);
-        placePiece(col2, PLAYER_YELLOW);
+        const aiCol = Math.floor(Math.random() * COLS);
+        placePiece(aiCol, PLAYER_YELLOW);
         draw();
-        if (checkWin(PLAYER_YELLOW)) {
-          statusDiv.textContent = 'AI wins!';
-          leaveMatch();
-        } else if (isBoardFull()) {
-          statusDiv.textContent = 'Draw!';
-          leaveMatch();
-        } else {
-          switchTurn();
-          statusDiv.textContent = 'Your turn';
-        }
+        if (checkWin(PLAYER_YELLOW)) { statusDiv.textContent = 'AI wins!'; leaveMatch(); }
+        else if (isBoardFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); }
+        else { switchTurn(); statusDiv.textContent = 'Your turn'; }
       }, 500);
     }
   };
 
   draw();
-})();
+}
+
+initializeGame();
 </script>
 </body>
 </html>
