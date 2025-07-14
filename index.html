@@ -576,46 +576,278 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function aiMove() {
-    if(gameState !== 'playing') return;
-    if(currentPlayer !== PLAYER_YELLOW) return; // AI plays yellow
+  if(gameState !== 'playing') return;
+  if(currentPlayer !== PLAYER_YELLOW) return; // AI plays yellow
 
-    // Find available columns
-    let possibleCols = [];
-    for(let c=0; c<cols; c++){
-      if(board[0][c] === PLAYER_NONE){
-        possibleCols.push(c);
+  let chosenCol;
+  
+  switch(aiDifficulty) {
+    case 'easy':
+      chosenCol = getRandomMove();
+      break;
+    case 'normal':
+      chosenCol = getNormalMove();
+      break;
+    case 'hard':
+      chosenCol = getHardMove();
+      break;
+    case 'insane':
+      chosenCol = getInsaneMove();
+      break;
+    case 'impossible':
+      chosenCol = getImpossibleMove();
+      break;
+    default:
+      chosenCol = getRandomMove();
+  }
+  
+  if (chosenCol === -1) return;
+  
+  // Place the piece
+  for(let y=rows-1; y>=0; y--){
+    if(board[y][chosenCol] === PLAYER_NONE){
+      board[y][chosenCol] = PLAYER_YELLOW;
+      drawBoard();
+      broadcast({type:'move', col:chosenCol, row:y, player: PLAYER_YELLOW, gameId});
+
+      const winner = checkWin();
+      if(winner !== PLAYER_NONE){
+        gameState = 'ended';
+        setStatus(winner === PLAYER_YELLOW ? "AI wins!" : "You win!");
+        broadcast({type:'end', winner, gameId});
+      } else if(isBoardFull()){
+        gameState = 'ended';
+        setStatus("It's a draw!");
+        broadcast({type:'end', winner: PLAYER_NONE, gameId});
+      } else {
+        currentPlayer = PLAYER_RED;
+        setStatus("Your turn!");
       }
+      updateUIButtons();
+      break;
     }
-    if(possibleCols.length === 0) return;
+  }
+}
 
-    // Simple AI: random choice (you can enhance this with difficulty levels)
-    let chosenCol = possibleCols[Math.floor(Math.random() * possibleCols.length)];
-    
-    // Place the piece
-    for(let y=rows-1; y>=0; y--){
-      if(board[y][chosenCol] === PLAYER_NONE){
-        board[y][chosenCol] = PLAYER_YELLOW;
-        drawBoard();
-        broadcast({type:'move', col:chosenCol, row:y, player: PLAYER_YELLOW, gameId});
+// AI Helper Functions (add these new functions)
+function getRandomMove() {
+  const possibleCols = [];
+  for(let c=0; c<cols; c++){
+    if(board[0][c] === PLAYER_NONE){
+      possibleCols.push(c);
+    }
+  }
+  return possibleCols.length > 0 ? possibleCols[Math.floor(Math.random() * possibleCols.length)] : -1;
+}
 
-        const winner = checkWin();
-        if(winner !== PLAYER_NONE){
-          gameState = 'ended';
-          setStatus(winner === PLAYER_YELLOW ? "AI wins!" : "You win!");
-          broadcast({type:'end', winner, gameId});
-        } else if(isBoardFull()){
-          gameState = 'ended';
-          setStatus("It's a draw!");
-          broadcast({type:'end', winner: PLAYER_NONE, gameId});
-        } else {
-          currentPlayer = PLAYER_RED;
-          setStatus("Your turn!");
+function getNormalMove() {
+  // Check for winning move first
+  for(let c=0; c<cols; c++){
+    if(board[0][c] === PLAYER_NONE){
+      const tempBoard = board.map(row => [...row]);
+      for(let y=rows-1; y>=0; y--){
+        if(tempBoard[y][c] === PLAYER_NONE){
+          tempBoard[y][c] = PLAYER_YELLOW;
+          if(checkWinOnBoard(tempBoard) === PLAYER_YELLOW){
+            return c;
+          }
+          break;
         }
-        updateUIButtons();
-        break;
       }
     }
   }
+  
+  // Check for blocking move
+  for(let c=0; c<cols; c++){
+    if(board[0][c] === PLAYER_NONE){
+      const tempBoard = board.map(row => [...row]);
+      for(let y=rows-1; y>=0; y--){
+        if(tempBoard[y][c] === PLAYER_NONE){
+          tempBoard[y][c] = PLAYER_RED;
+          if(checkWinOnBoard(tempBoard) === PLAYER_RED){
+            return c;
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // Otherwise random
+  return getRandomMove();
+}
+
+function getHardMove() {
+  // Use minimax with depth 4
+  const move = minimax(board, 4, -Infinity, Infinity, true);
+  return move.col;
+}
+
+function getInsaneMove() {
+  // Use minimax with depth 6
+  const move = minimax(board, 6, -Infinity, Infinity, true);
+  return move.col;
+}
+
+function getImpossibleMove() {
+  // Use minimax with depth 8 and enhanced evaluation
+  const move = minimax(board, 8, -Infinity, Infinity, true);
+  return move.col;
+}
+
+function minimax(board, depth, alpha, beta, isMaximizing) {
+  const winner = checkWinOnBoard(board);
+  
+  if (winner === PLAYER_YELLOW) return { score: 100000 };
+  if (winner === PLAYER_RED) return { score: -100000 };
+  if (depth === 0 || isBoardFullOnBoard(board)) return { score: evaluateBoard(board) };
+  
+  if (isMaximizing) {
+    let maxEval = -Infinity;
+    let bestCol = -1;
+    
+    for (let c = 0; c < cols; c++) {
+      if (board[0][c] === PLAYER_NONE) {
+        const newBoard = makeMove(board, c, PLAYER_YELLOW);
+        const eval = minimax(newBoard, depth - 1, alpha, beta, false);
+        
+        if (eval.score > maxEval) {
+          maxEval = eval.score;
+          bestCol = c;
+        }
+        
+        alpha = Math.max(alpha, eval.score);
+        if (beta <= alpha) break;
+      }
+    }
+    
+    return { score: maxEval, col: bestCol };
+  } else {
+    let minEval = Infinity;
+    let bestCol = -1;
+    
+    for (let c = 0; c < cols; c++) {
+      if (board[0][c] === PLAYER_NONE) {
+        const newBoard = makeMove(board, c, PLAYER_RED);
+        const eval = minimax(newBoard, depth - 1, alpha, beta, true);
+        
+        if (eval.score < minEval) {
+          minEval = eval.score;
+          bestCol = c;
+        }
+        
+        beta = Math.min(beta, eval.score);
+        if (beta <= alpha) break;
+      }
+    }
+    
+    return { score: minEval, col: bestCol };
+  }
+}
+
+function makeMove(board, col, player) {
+  const newBoard = board.map(row => [...row]);
+  for (let y = rows - 1; y >= 0; y--) {
+    if (newBoard[y][col] === PLAYER_NONE) {
+      newBoard[y][col] = player;
+      break;
+    }
+  }
+  return newBoard;
+}
+
+function evaluateBoard(board) {
+  let score = 0;
+  
+  // Center column preference
+  const centerCol = Math.floor(cols / 2);
+  for (let y = 0; y < rows; y++) {
+    if (board[y][centerCol] === PLAYER_YELLOW) score += 3;
+    if (board[y][centerCol] === PLAYER_RED) score -= 3;
+  }
+  
+  // Evaluate all possible 4-in-a-row windows
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      // Horizontal
+      if (x <= cols - 4) {
+        score += evaluateWindow([board[y][x], board[y][x+1], board[y][x+2], board[y][x+3]]);
+      }
+      // Vertical
+      if (y <= rows - 4) {
+        score += evaluateWindow([board[y][x], board[y+1][x], board[y+2][x], board[y+3][x]]);
+      }
+      // Diagonal \
+      if (y <= rows - 4 && x <= cols - 4) {
+        score += evaluateWindow([board[y][x], board[y+1][x+1], board[y+2][x+2], board[y+3][x+3]]);
+      }
+      // Diagonal /
+      if (y >= 3 && x <= cols - 4) {
+        score += evaluateWindow([board[y][x], board[y-1][x+1], board[y-2][x+2], board[y-3][x+3]]);
+      }
+    }
+  }
+  
+  return score;
+}
+
+function evaluateWindow(window) {
+  let score = 0;
+  const aiCount = window.filter(cell => cell === PLAYER_YELLOW).length;
+  const humanCount = window.filter(cell => cell === PLAYER_RED).length;
+  const emptyCount = window.filter(cell => cell === PLAYER_NONE).length;
+  
+  if (aiCount === 4) score += 100;
+  else if (aiCount === 3 && emptyCount === 1) score += 10;
+  else if (aiCount === 2 && emptyCount === 2) score += 2;
+  
+  if (humanCount === 4) score -= 100;
+  else if (humanCount === 3 && emptyCount === 1) score -= 80;
+  else if (humanCount === 2 && emptyCount === 2) score -= 2;
+  
+  return score;
+}
+
+function checkWinOnBoard(board) {
+  // Same logic as checkWin() but for any board state
+  for(let y=0; y<rows; y++){
+    for(let x=0; x<=cols-4; x++){
+      const val = board[y][x];
+      if(val !== PLAYER_NONE && val === board[y][x+1] && val === board[y][x+2] && val === board[y][x+3]){
+        return val;
+      }
+    }
+  }
+  for(let x=0; x<cols; x++){
+    for(let y=0; y<=rows-4; y++){
+      const val = board[y][x];
+      if(val !== PLAYER_NONE && val === board[y+1][x] && val === board[y+2][x] && val === board[y+3][x]){
+        return val;
+      }
+    }
+  }
+  for(let y=0; y<=rows-4; y++){
+    for(let x=0; x<=cols-4; x++){
+      const val = board[y][x];
+      if(val !== PLAYER_NONE && val === board[y+1][x+1] && val === board[y+2][x+2] && val === board[y+3][x+3]){
+        return val;
+      }
+    }
+  }
+  for(let y=3; y<rows; y++){
+    for(let x=0; x<=cols-4; x++){
+      const val = board[y][x];
+      if(val !== PLAYER_NONE && val === board[y-1][x+1] && val === board[y-2][x+2] && val === board[y-3][x+3]){
+        return val;
+      }
+    }
+  }
+  return PLAYER_NONE;
+}
+
+function isBoardFullOnBoard(board) {
+  return board.every(row => row.every(cell => cell !== PLAYER_NONE));
+}
 
   function addMatch(game) {
     matches[game.id] = game;
@@ -674,48 +906,97 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('matchList').style.display = show ? 'block' : 'none';
   }
 
-  function broadcast(msg) {
-    // For Discord activities, use both local storage and Discord's activity system
-    if (typeof DiscordSDK !== "undefined") {
-      try {
-        // Update Discord activity status
-        DiscordSDK.commands.setActivity({
-          activity: {
-            type: 0, // Playing
-            details: `Connect Four ${rows}×${cols}`,
-            state: gameState === 'playing' ? 'In Game' : gameState === 'waiting' ? 'Waiting' : 'Menu',
-            party: {
-              id: gameId || 'lobby',
-              size: [Object.keys(matches).length + 1, 10]
-            }
+ function setupDiscordListeners() {
+  if (typeof DiscordSDK !== "undefined") {
+    // Listen for activity instance data updates
+    DiscordSDK.subscribe('ACTIVITY_INSTANCE_DATA_UPDATE', (data) => {
+      console.log("Activity instance data updated:", data);
+      if (data.type === 'MATCH_UPDATE' && data.data) {
+        const remoteMatches = data.data.matches;
+        const userId = discordUser ? discordUser.id : 'local_player';
+        
+        // Merge remote matches with local matches
+        Object.keys(remoteMatches).forEach(matchId => {
+          if (remoteMatches[matchId].ownerId !== userId) {
+            matches[matchId] = remoteMatches[matchId];
           }
         });
-
-        // Send message to other participants via Discord's messaging
-        DiscordSDK.commands.sendActivityMessage({
-          type: 'CUSTOM',
-          data: msg
-        });
         
-      } catch (error) {
-        console.error("Discord activity update failed:", error);
+        renderMatchList();
       }
-    }
-    
-    // Store matches in localStorage for persistence
-    const existingMatches = JSON.parse(localStorage.getItem('connectFourMatches') || '{}');
-    
-    if (msg.type === 'create') {
-      existingMatches[msg.game.id] = msg.game;
-      localStorage.setItem('connectFourMatches', JSON.stringify(existingMatches));
-    } else if (msg.type === 'leave' && msg.ownerLeft) {
-      delete existingMatches[msg.gameId];
-      localStorage.setItem('connectFourMatches', JSON.stringify(existingMatches));
-    }
-    
-    // Broadcast to other tabs/instances
-    window.dispatchEvent(new CustomEvent('gameMessage', {detail: msg}));
+    });
+
+    // Periodic refresh of matches from activity participants
+    setInterval(() => {
+      if (gameState === 'idle' || gameState === 'waiting') {
+        DiscordSDK.commands.getActivityInstanceData()
+          .then(data => {
+            if (data && data.matches) {
+              const remoteMatches = JSON.parse(data.matches);
+              const userId = discordUser ? discordUser.id : 'local_player';
+              
+              Object.keys(remoteMatches).forEach(matchId => {
+                if (remoteMatches[matchId].ownerId !== userId) {
+                  matches[matchId] = remoteMatches[matchId];
+                }
+              });
+              
+              renderMatchList();
+            }
+          })
+          .catch(err => console.log("No activity instance data:", err));
+      }
+    }, 3000); // Refresh every 3 seconds
   }
+}
+
+ function broadcast(msg) {
+  // For Discord activities, use the instance data system
+  if (typeof DiscordSDK !== "undefined") {
+    try {
+      // Update Discord activity with current game state
+      DiscordSDK.commands.setActivity({
+        activity: {
+          type: 0, // Playing
+          details: `Connect Four ${rows}×${cols}`,
+          state: gameState === 'playing' ? 'In Game' : gameState === 'waiting' ? 'Waiting' : 'Menu',
+          party: {
+            id: gameId || 'lobby',
+            size: [Object.keys(matches).length + 1, 10]
+          },
+          // Store match data in activity instance
+          instance: {
+            matches: JSON.stringify(matches),
+            timestamp: Date.now()
+          }
+        }
+      });
+
+      // Also send as activity message for real-time updates
+      DiscordSDK.commands.sendActivityInstanceData({
+        type: 'MATCH_UPDATE',
+        data: {
+          matches: matches,
+          message: msg,
+          timestamp: Date.now()
+        }
+      });
+      
+    } catch (error) {
+      console.error("Discord activity update failed:", error);
+    }
+  }
+  
+  // Fallback to localStorage for non-Discord environments
+  if (msg.type === 'create') {
+    matches[msg.game.id] = msg.game;
+  } else if (msg.type === 'leave' && msg.ownerLeft) {
+    delete matches[msg.gameId];
+  }
+  
+  // Broadcast to other tabs/instances
+  window.dispatchEvent(new CustomEvent('gameMessage', {detail: msg}));
+}
 
   // Listen for Discord activity messages
   if (typeof DiscordSDK !== "undefined") {
