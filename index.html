@@ -117,13 +117,18 @@
     margin-top: 10px;
     display: none;
     gap: 8px;
+    max-width: 600px;
+    width: 100%;
+    justify-content: center;
   }
   #aiDifficultyButtons button {
-    padding: 4px 8px;
+    padding: 6px 12px;
     font-weight: 600;
     border-radius: 4px;
     border: none;
     cursor: pointer;
+    background-color: #444;
+    color: white;
   }
   #aiDifficultyButtons button.active {
     background-color: #ffaa00;
@@ -186,7 +191,7 @@
 </div>
 
 <!-- AI difficulty -->
-<div id="aiDifficultyButtons" class="hide" style="max-width: 600px; width: 100%; justify-content: center; gap: 8px;">
+<div id="aiDifficultyButtons" class="hide">
   <button data-level="easy">Easy</button>
   <button data-level="normal" class="active">Normal</button>
   <button data-level="hard">Hard</button>
@@ -449,6 +454,8 @@
     gameId = id;
     gameMode = m.mode;
     myPlayer = m.players.length === 1 ? PLAYER_RED : PLAYER_YELLOW;
+    rows = m.rows;
+    cols = m.cols;
     initBoard();
     currentPlayer = PLAYER_RED;
     gameState = 'playing';
@@ -484,10 +491,14 @@
 
     initBoard();
     currentPlayer = PLAYER_RED;
-    gameState = 'waiting';
+    gameState = 'playing';
     updateUIOnGameStart();
-    setStatus("Waiting for opponent to join...");
+    setStatus(gameMode === 'ai' ? "Your turn" : "Waiting for opponent to join...");
     renderMatches();
+
+    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
+      setTimeout(aiMove, 500);
+    }
   }
 
   // Leave the current match
@@ -508,7 +519,18 @@
     updateUIOnGameEnd();
   }
 
-  // Game turns and moves
+  // Canvas click handler
+  canvas.addEventListener('click', e => {
+    if (gameState !== 'playing') return;
+    if (currentPlayer !== myPlayer) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const col = Math.floor(x / 70);
+    if (col < 0 || col >= cols) return;
+    playMove(col);
+  });
+
+  // Play a move for the current player
   function playMove(col) {
     if (gameState !== 'playing') return;
     if (currentPlayer !== myPlayer) return;
@@ -530,31 +552,51 @@
       return;
     }
 
-    // Switch turn
     currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
     setStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
 
     if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-      setTimeout(aiMove, 500);
+      setTimeout(aiMove, 300);
     }
   }
 
-  // AI move logic (basic random for now)
+  // AI move logic with minimax and varying depth based on difficulty
   function aiMove() {
     if (gameState !== 'playing') return;
-    let validCols = [];
-    for (let c = 0; c < cols; c++) {
-      if (findLowestEmptyRow(c) !== -1) validCols.push(c);
-    }
-    if (validCols.length === 0) return;
-    const col = validCols[Math.floor(Math.random() * validCols.length)];
-    const r = findLowestEmptyRow(col);
-    if (r === -1) return;
 
-    board[r][col] = currentPlayer;
+    const aiPlayer = currentPlayer;
+    const humanPlayer = myPlayer;
+
+    let depth;
+    switch (aiDifficulty) {
+      case 'easy': depth = 2; break;
+      case 'normal': depth = 4; break;
+      case 'hard': depth = 6; break;
+      case 'insane': depth = 8; break;
+      case 'impossible': depth = 10; break;
+      default: depth = 4;
+    }
+
+    // Get best move via minimax
+    const move = findBestMove(board, aiPlayer, humanPlayer, depth);
+    if (move === -1) {
+      // No valid moves
+      setStatus("It's a tie!");
+      gameState = 'ended';
+      return;
+    }
+
+    const row = findLowestEmptyRow(move);
+    if (row === -1) {
+      setStatus("It's a tie!");
+      gameState = 'ended';
+      return;
+    }
+
+    board[row][move] = aiPlayer;
     drawBoard();
 
-    if (checkWin(currentPlayer)) {
+    if (checkWin(aiPlayer)) {
       setStatus('AI wins!');
       gameState = 'ended';
       return;
@@ -565,20 +607,144 @@
       return;
     }
 
-    currentPlayer = PLAYER_RED;
+    currentPlayer = humanPlayer;
     setStatus("Your turn");
   }
 
-  // Canvas click handler
-  canvas.addEventListener('click', e => {
-    if (gameState !== 'playing') return;
-    if (currentPlayer !== myPlayer) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const col = Math.floor(x / 70);
-    if (col < 0 || col >= cols) return;
-    playMove(col);
-  });
+  // Evaluation function for board positions
+  function evaluateBoard(bd, ai, human) {
+    let score = 0;
+
+    function countSequence(line, player) {
+      let count = 0, blocks = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === player) count++;
+        else if (line[i] !== PLAYER_NONE) blocks++;
+      }
+      if (blocks > 0 && count < 4) return 0;
+      if (count === 4) return 10000;
+      if (count === 3) return 100;
+      if (count === 2) return 10;
+      if (count === 1) return 1;
+      return 0;
+    }
+
+    // Score horizontal, vertical and diagonals for ai and human, weight them
+    function scorePosition(player) {
+      let total = 0;
+
+      // Horizontal
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c <= cols - 4; c++) {
+          const line = [bd[r][c], bd[r][c+1], bd[r][c+2], bd[r][c+3]];
+          total += countSequence(line, player);
+        }
+      }
+      // Vertical
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r <= rows - 4; r++) {
+          const line = [bd[r][c], bd[r+1][c], bd[r+2][c], bd[r+3][c]];
+          total += countSequence(line, player);
+        }
+      }
+      // Diagonal down-right
+      for (let r = 0; r <= rows - 4; r++) {
+        for (let c = 0; c <= cols - 4; c++) {
+          const line = [bd[r][c], bd[r+1][c+1], bd[r+2][c+2], bd[r+3][c+3]];
+          total += countSequence(line, player);
+        }
+      }
+      // Diagonal up-right
+      for (let r = 3; r < rows; r++) {
+        for (let c = 0; c <= cols - 4; c++) {
+          const line = [bd[r][c], bd[r-1][c+1], bd[r-2][c+2], bd[r-3][c+3]];
+          total += countSequence(line, player);
+        }
+      }
+      return total;
+    }
+
+    score += scorePosition(ai);
+    score -= scorePosition(human) * 1.5; // More weight on blocking human
+
+    return score;
+  }
+
+  // Minimax with alpha-beta pruning
+  function minimax(bd, depth, maximizingPlayer, alpha, beta, ai, human) {
+    if (checkWin(ai)) return { score: 1000000 };
+    if (checkWin(human)) return { score: -1000000 };
+    if (depth === 0 || isBoardFull()) return { score: evaluateBoard(bd, ai, human) };
+
+    const validCols = [];
+    for (let c = 0; c < cols; c++) {
+      if (findLowestEmptyRowCol(bd, c) !== -1) validCols.push(c);
+    }
+    if (validCols.length === 0) return { score: 0 };
+
+    if (maximizingPlayer) {
+      let maxEval = -Infinity;
+      let bestCol = validCols[0];
+      for (const col of validCols) {
+        const row = findLowestEmptyRowCol(bd, col);
+        bd[row][col] = ai;
+        const evalResult = minimax(bd, depth - 1, false, alpha, beta, ai, human);
+        bd[row][col] = PLAYER_NONE;
+        if (evalResult.score > maxEval) {
+          maxEval = evalResult.score;
+          bestCol = col;
+        }
+        alpha = Math.max(alpha, evalResult.score);
+        if (beta <= alpha) break;
+      }
+      return { score: maxEval, column: bestCol };
+    } else {
+      let minEval = Infinity;
+      let bestCol = validCols[0];
+      for (const col of validCols) {
+        const row = findLowestEmptyRowCol(bd, col);
+        bd[row][col] = human;
+        const evalResult = minimax(bd, depth - 1, true, alpha, beta, ai, human);
+        bd[row][col] = PLAYER_NONE;
+        if (evalResult.score < minEval) {
+          minEval = evalResult.score;
+          bestCol = col;
+        }
+        beta = Math.min(beta, evalResult.score);
+        if (beta <= alpha) break;
+      }
+      return { score: minEval, column: bestCol };
+    }
+  }
+
+  // Find lowest empty row for a specific board (used inside minimax)
+  function findLowestEmptyRowCol(bd, col) {
+    for (let r = rows - 1; r >= 0; r--) {
+      if (bd[r][col] === PLAYER_NONE) return r;
+    }
+    return -1;
+  }
+
+  // Find best move for AI
+  function findBestMove(bd, ai, human, depth) {
+    // If easy or normal: try random move sometimes for variability
+    if (aiDifficulty === 'easy') {
+      // 50% random move for easy
+      if (Math.random() < 0.5) {
+        const validCols = [];
+        for (let c = 0; c < cols; c++) {
+          if (findLowestEmptyRowCol(bd, c) !== -1) validCols.push(c);
+        }
+        if (validCols.length > 0) {
+          return validCols[Math.floor(Math.random() * validCols.length)];
+        }
+      }
+    }
+
+    const { column } = minimax(bd, depth, true, -Infinity, Infinity, ai, human);
+    if (column === undefined) return -1;
+    return column;
+  }
 
   // UI updates on game start
   function updateUIOnGameStart() {
@@ -605,6 +771,7 @@
     if (!isInMatch) {
       matchListDiv.classList.remove('hide');
       aiDiv.style.display = 'none';
+      menu.classList.remove('hide');
     }
   }
 
@@ -634,7 +801,6 @@
       aiBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       aiDifficulty = btn.dataset.level;
-      // Difficulty logic can be added later
     });
   });
 
