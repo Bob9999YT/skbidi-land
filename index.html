@@ -199,6 +199,25 @@
       color: #ffaa00;
       font-weight: 600;
     }
+    .matchItem .playerInfo .avatar-circle {
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+    }
+    #turnIndicator {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: #ffaa00;
+      font-size: 18px;
+    }
+    #turnIndicator .avatar-circle {
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -244,7 +263,13 @@
   </div>
 
   <canvas id="gameCanvas" width="490" height="420"></canvas>
-  <div id="status"></div>
+
+  <div id="turnIndicator" style="display:none;">
+    <div class="avatar-circle" id="turnAvatar"></div>
+    <span id="turnText"></span>
+  </div>
+
+  <div id="status" style="margin-top: 10px; text-align: center; font-weight: 700;"></div>
 
   <div id="matchList">
     <h3 style="color:#ffaa00; text-align:center;">Available Matches</h3>
@@ -280,12 +305,34 @@
     const statusText = document.getElementById('status');
     const matchListDiv = document.getElementById('matchList'), matchesContainer = document.getElementById('matchesContainer');
     const refreshBtn = document.getElementById('refreshMatchesBtn');
+    const turnIndicator = document.getElementById('turnIndicator');
+    const turnAvatar = document.getElementById('turnAvatar');
+    const turnText = document.getElementById('turnText');
 
     function getAvatarColor(name) {
       let hash = 0;
       for (let c of name) hash = c.charCodeAt(0) + ((hash << 5) - hash);
       const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
       return colors[Math.abs(hash) % colors.length];
+    }
+
+    function createAvatarElement(username, avatarUrl, size = 24) {
+      const div = document.createElement('div');
+      div.className = 'avatar-circle';
+      div.style.width = size + 'px';
+      div.style.height = size + 'px';
+      div.style.fontSize = (size * 0.58) + 'px';
+      if (avatarUrl && avatarUrl.startsWith('http')) {
+        const img = document.createElement('img');
+        img.src = avatarUrl;
+        img.alt = username;
+        div.appendChild(img);
+        div.style.backgroundColor = '';
+      } else {
+        div.textContent = username.charAt(0).toUpperCase();
+        div.style.backgroundColor = getAvatarColor(username);
+      }
+      return div;
     }
 
     function updateUserProfile() {
@@ -363,16 +410,7 @@
         any = true;
         let div = document.createElement('div'); div.className = 'matchItem';
         let infoDiv = document.createElement('div'); infoDiv.className = 'playerInfo';
-        let avatar = document.createElement('div'); avatar.className = 'avatar-circle';
-        if (m.creatorAvatarUrl && m.creatorAvatarUrl.startsWith('http')) {
-          let img = document.createElement('img');
-          img.src = m.creatorAvatarUrl;
-          img.alt = m.creatorName;
-          avatar.appendChild(img);
-        } else {
-          avatar.textContent = m.creatorName.charAt(0).toUpperCase();
-          avatar.style.backgroundColor = getAvatarColor(m.creatorName);
-        }
+        let avatar = createAvatarElement(m.creatorName, m.creatorAvatarUrl, 24);
         let nameSpan = document.createElement('span'); nameSpan.textContent = m.creatorName;
         infoDiv.append(avatar, nameSpan);
         let btn = document.createElement('button'); btn.textContent = 'Join'; btn.disabled = isInMatch; btn.onclick = () => joinMatch(m.id);
@@ -385,64 +423,127 @@
     function makeId() { return 'match_' + Math.random().toString(36).substr(2, 9); }
 
     function updateUIForMatch() {
-      let inM = isInMatch;
+      const inM = isInMatch;
       createBtn.disabled = inM; rowSel.disabled = inM;
       colSel.disabled = inM; modeSel.disabled = inM;
       leaveBtn.disabled = !inM;
       canvas.style.display = inM ? 'block' : 'none';
-      statusText.style.display = 'block';
-      matchListDiv.style.display = (!inM || (inM && gameMode === 'pvp')) ? 'block' : 'none';
-      aiDiv.style.display = inM && gameMode === 'ai' ? 'flex' : 'none';
-      if (!inM && gameMode === 'pvp') refreshMatchesList();
+      turnIndicator.style.display = inM ? 'flex' : 'none';
+      matchListDiv.style.display = (!inM && modeSel.value === 'pvp') ? 'block' : 'none';
+      aiDiv.style.display = (modeSel.value === 'ai') && !inM ? 'flex' : 'none';
+      statusText.textContent = '';
+      if (!inM) {
+        gameId = null; gameState = 'idle'; board = [];
+        drawBoard();
+      }
     }
 
-    function updateStatus(t) { statusText.textContent = t; }
+    function updateTurnIndicator() {
+      if (!isInMatch || gameState !== 'playing') {
+        turnIndicator.style.display = 'none';
+        return;
+      }
+      turnIndicator.style.display = 'flex';
+      let playerId, playerName, playerAvatar;
+      if (gameMode === 'pvp') {
+        if (currentPlayer === PLAYER_RED) {
+          playerId = matches[gameId]?.creatorId || null;
+          playerName = matches[gameId]?.creatorName || "Red";
+          playerAvatar = matches[gameId]?.creatorAvatarUrl || null;
+        } else {
+          playerId = matches[gameId]?.opponentId || null;
+          playerName = matches[gameId]?.opponentName || "Yellow";
+          playerAvatar = matches[gameId]?.opponentAvatarUrl || null;
+        }
+      } else {
+        // AI turn
+        playerId = currentUserId;
+        playerName = currentUser.username;
+        playerAvatar = currentUser.avatarUrl;
+      }
+      turnText.textContent = `${playerName}'s turn`;
+      turnAvatar.innerHTML = '';
+      if (playerAvatar && playerAvatar.startsWith('http')) {
+        let img = document.createElement('img');
+        img.src = playerAvatar; img.alt = playerName;
+        turnAvatar.appendChild(img);
+        turnAvatar.style.backgroundColor = '';
+      } else {
+        turnAvatar.textContent = playerName.charAt(0).toUpperCase();
+        turnAvatar.style.backgroundColor = getAvatarColor(playerName);
+      }
+    }
 
     function createMatch() {
       if (isInMatch) return;
-      rows = parseInt(rowSel.value); cols = parseInt(colSel.value); gameMode = modeSel.value;
-      gameId = makeId();
-      currentPlayer = PLAYER_RED; myPlayer = PLAYER_RED;
-      gameState = gameMode === 'pvp' ? 'waiting' : 'playing';
+      rows = parseInt(rowSel.value);
+      cols = parseInt(colSel.value);
+      gameMode = modeSel.value;
       initBoard();
+      currentPlayer = PLAYER_RED;
+      gameState = 'waiting';
+      myPlayer = PLAYER_RED;
+      gameId = makeId();
+
       if (gameMode === 'pvp') {
         matches[gameId] = {
           id: gameId,
           creatorId: currentUserId,
           creatorName: currentUser.username,
           creatorAvatarUrl: currentUser.avatarUrl,
-          rows,
-          cols,
-          mode: 'pvp',
-          status: 'waiting',
+          opponentId: null,
+          opponentName: null,
+          opponentAvatarUrl: null,
           board: JSON.parse(JSON.stringify(board)),
-          currentTurn: currentPlayer
+          rows, cols,
+          status: 'waiting',
+          currentTurn: currentPlayer,
+          mode: gameMode,
         };
         saveGlobalMatches();
-        updateStatus('Waiting for opponent to join…');
-      } else {
-        updateStatus("Your turn");
+        refreshMatchesList();
+      } else if (gameMode === 'ai') {
+        // AI mode - no match in global list, start immediately
+        gameState = 'playing';
+        myPlayer = PLAYER_RED;
+        isInMatch = true;
+        updateUIForMatch();
+        updateTurnIndicator();
+        statusText.textContent = "Your turn";
+        return;
       }
-      isInMatch = true; leaveBtn.disabled = false; drawBoard(); updateUIForMatch();
+
+      isInMatch = true;
+      updateUIForMatch();
+      updateTurnIndicator();
+      statusText.textContent = "Waiting for opponent...";
     }
 
     function joinMatch(id) {
-      if (isInMatch || !matches[id] || matches[id].status !== 'waiting' || matches[id].creatorId === currentUserId) return;
+      if (isInMatch) return;
       let m = matches[id];
-      gameId = id;
+      if (!m || m.status !== 'waiting') return;
       rows = m.rows; cols = m.cols; gameMode = m.mode;
       initBoard();
       board = JSON.parse(JSON.stringify(m.board));
       myPlayer = PLAYER_YELLOW;
-      currentPlayer = PLAYER_RED;
+      currentPlayer = PLAYER_RED; // creator always starts
       gameState = 'playing';
+      m.opponentId = currentUserId;
+      m.opponentName = currentUser.username;
+      m.opponentAvatarUrl = currentUser.avatarUrl;
       m.status = 'playing';
       m.currentTurn = currentPlayer;
       matches[id] = m;
+      saveGlobalMatches();
+
+      gameId = id;
       isInMatch = true;
       updateUIForMatch();
-      updateStatus(`Your turn: ${myPlayer === currentPlayer ? "Yes" : "Wait for opponent"}`);
+      updateTurnIndicator();
+      statusText.textContent = `${m.creatorName}'s turn`;
       drawBoard();
+      refreshMatchesList();
     }
 
     function leaveMatch() {
@@ -456,8 +557,12 @@
       gameState = 'idle';
       isInMatch = false;
       updateStatus('');
-      drawBoard();
       updateUIForMatch();
+      refreshMatchesList();
+    }
+
+    function updateStatus(text) {
+      statusText.textContent = text;
     }
 
     function handleClick(evt) {
@@ -470,6 +575,7 @@
       if (row === -1) return;
       board[row][col] = currentPlayer;
       drawBoard();
+
       if (checkWin(currentPlayer)) {
         updateStatus(currentPlayer === myPlayer ? 'You win!' : 'You lose!');
         gameState = 'ended';
@@ -477,6 +583,7 @@
           delete matches[gameId];
           saveGlobalMatches();
         }
+        updateUIForMatch();
         return;
       }
       if (checkDraw()) {
@@ -486,17 +593,22 @@
           delete matches[gameId];
           saveGlobalMatches();
         }
+        updateUIForMatch();
         return;
       }
+
       currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+
       if (gameMode === 'pvp') {
         if (matches[gameId]) {
           matches[gameId].board = JSON.parse(JSON.stringify(board));
           matches[gameId].currentTurn = currentPlayer;
           saveGlobalMatches();
         }
-        updateStatus(currentPlayer === myPlayer ? 'Your turn' : 'Opponent\'s turn');
+        updateTurnIndicator();
+        updateStatus(currentPlayer === myPlayer ? 'Your turn' : `${currentPlayer === PLAYER_RED ? matches[gameId].creatorName : matches[gameId].opponentName}'s turn`);
       } else if (gameMode === 'ai') {
+        updateTurnIndicator();
         updateStatus("AI's turn");
         setTimeout(aiMove, 700);
       }
@@ -504,7 +616,6 @@
 
     function aiMove() {
       if (gameState !== 'playing' || currentPlayer !== myPlayer) return;
-      // Simple AI - pick a random valid column
       let validCols = [];
       for (let c = 0; c < cols; c++) if (findLowestEmptyRow(c) !== -1) validCols.push(c);
       if (validCols.length === 0) return;
@@ -512,17 +623,22 @@
       let row = findLowestEmptyRow(col);
       board[row][col] = currentPlayer;
       drawBoard();
+
       if (checkWin(currentPlayer)) {
         updateStatus('AI wins!');
         gameState = 'ended';
+        updateUIForMatch();
         return;
       }
       if (checkDraw()) {
         updateStatus('Draw!');
         gameState = 'ended';
+        updateUIForMatch();
         return;
       }
+
       currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+      updateTurnIndicator();
       updateStatus("Your turn");
     }
 
@@ -544,11 +660,11 @@
     }
 
     usernameInput.addEventListener('input', () => {
-      usernameSubmit.disabled = usernameInput.value.trim().length === 0;
+      usernameSubmit.disabled = usernameInput.value.trim().length < 2;
     });
 
     usernameSubmit.addEventListener('click', () => {
-      let val = usernameInput.value.trim();
+      const val = usernameInput.value.trim();
       if (!val) return;
       currentUser.username = val;
       currentUser.avatarUrl = avatarUrlInput.value.trim();
@@ -564,7 +680,10 @@
     });
 
     createBtn.addEventListener('click', createMatch);
-    leaveBtn.addEventListener('click', leaveMatch);
+    leaveBtn.addEventListener('click', () => {
+      leaveMatch();
+    });
+
     canvas.addEventListener('click', handleClick);
 
     modeSel.addEventListener('change', () => {
@@ -573,8 +692,9 @@
         matchListDiv.style.display = 'none';
       } else {
         aiDiv.style.display = 'none';
-        matchListDiv.style.display = 'block';
+        matchListDiv.style.display = isInMatch ? 'none' : 'block';
       }
+      updateUIForMatch();
     });
 
     aiBtns.forEach(btn => {
@@ -587,7 +707,7 @@
 
     refreshBtn.addEventListener('click', () => {
       Object.assign(matches, loadGlobalMatches());
-      refreshMatchesList();
+      if (!isInMatch) refreshMatchesList();
     });
 
     window.addEventListener('storage', (event) => {
@@ -598,13 +718,15 @@
           board = JSON.parse(JSON.stringify(matches[gameId].board));
           currentPlayer = matches[gameId].currentTurn;
           drawBoard();
+          updateTurnIndicator();
           if (currentPlayer === myPlayer) updateStatus('Your turn');
-          else updateStatus('Opponent\'s turn');
+          else updateStatus(`${currentPlayer === PLAYER_RED ? matches[gameId].creatorName : matches[gameId].opponentName}'s turn`);
         }
       }
     });
 
     setupSelectOptions();
+
   })();
   </script>
 </body>
