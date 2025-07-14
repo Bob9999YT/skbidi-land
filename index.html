@@ -4,17 +4,14 @@
   <meta charset="UTF-8" />
   <title>Connect Four</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      width: 100%;
-      background-color: #1e1e2f;
-      font-family: 'Segoe UI', sans-serif;
+      background: #1e1e2f;
       color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
     }
     body {
       display: flex;
@@ -23,19 +20,19 @@
       justify-content: flex-start;
       padding: 20px;
       min-height: 100vh;
+      box-sizing: border-box;
+      background: #1e1e2f;
     }
     h1 {
+      margin-bottom: 10px;
       font-size: 32px;
       color: #ffaa00;
-      margin: 0 0 10px 0;
+    }
+    .menu, #matchList, canvas, #status {
+      z-index: 1;
     }
     .menu {
       margin-bottom: 15px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
     }
     select, button {
       margin: 5px;
@@ -59,20 +56,16 @@
     #aiDifficultyButtons {
       margin-top: 10px;
       margin-bottom: 10px;
-      display: flex;
-      gap: 8px;
-      justify-content: center;
     }
     #aiDifficultyButtons button {
       padding: 6px 12px;
       font-size: 14px;
       border-radius: 4px;
+      margin: 0 5px;
       border: 1.5px solid #ffaa00;
       background: #29293d;
       color: white;
       box-shadow: 0 2px 0 #ffaa00;
-      transition: all 0.2s ease;
-      cursor: pointer;
     }
     #aiDifficultyButtons button:hover {
       transform: scale(1.1);
@@ -82,8 +75,6 @@
     #aiDifficultyButtons button.active {
       background: #ffaa00;
       color: #111;
-      box-shadow: none;
-      transform: scale(1.1);
     }
     canvas {
       background: #29293d;
@@ -91,20 +82,16 @@
       display: block;
       border-radius: 12px;
       box-shadow: 0 0 10px #0008;
-      cursor: pointer;
     }
     #status {
       font-size: 18px;
       margin-top: 10px;
       font-weight: bold;
-      min-height: 24px;
-      text-align: center;
     }
     #matchList {
       margin-top: 15px;
       text-align: left;
       max-width: 400px;
-      width: 100%;
       margin-left: auto;
       margin-right: auto;
       font-size: 16px;
@@ -113,7 +100,6 @@
     #matchList h3 {
       margin-bottom: 8px;
       color: #ffaa00;
-      text-align: center;
     }
     .matchItem {
       margin-bottom: 8px;
@@ -125,35 +111,36 @@
       align-items: center;
       box-shadow: 0 3px 0 #ffaa00;
     }
-    .matchItem .playerInfo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .matchItem .playerInfo img {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-    }
     .matchItem button {
       padding: 4px 10px;
       font-size: 14px;
       border-radius: 4px;
-      cursor: pointer;
       background: #ffaa00;
       color: #111;
-      border: none;
-      box-shadow: none;
-      transition: transform 0.15s ease;
     }
     .matchItem button:hover {
       transform: scale(1.1);
     }
+    #userDisplay {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #userDisplay img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
   </style>
+  <script src="https://discord.com/assets/embedded-app-sdk.js"></script>
 </head>
 <body>
   <h1>Connect Four</h1>
-
+  <div id="userDisplay" style="display: none;">
+    <img id="userAvatar" src="" alt="Avatar" />
+    <span id="userName"></span>
+  </div>
   <div class="menu">
     Rows:
     <select id="rows"></select>
@@ -167,7 +154,6 @@
     <button id="create">Create Game</button>
     <button id="leave" disabled>Leave Game</button>
   </div>
-
   <div id="aiDifficultyButtons" style="display:none;">
     Difficulty:
     <button data-level="easy">Easy</button>
@@ -176,463 +162,32 @@
     <button data-level="insane">Insane</button>
     <button data-level="impossible">Impossible</button>
   </div>
-
-  <canvas id="gameCanvas" width="490" height="420"></canvas>
-  <div id="status">6 7 wheres the mangos</div>
-
+  <canvas id="gameCanvas"></canvas>
+  <div id="status">Select options and press Create.</div>
   <div id="matchList">
     <h3>Available Matches</h3>
     <div id="matchesContainer">No matches available.</div>
   </div>
-
   <script>
-    // Constants
-    const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const statusText = document.getElementById('status');
-    const matchesContainer = document.getElementById('matchesContainer');
-
-    // UI Elements
-    const rowSel = document.getElementById('rows');
-    const colSel = document.getElementById('cols');
-    const modeSel = document.getElementById('mode');
-    const createBtn = document.getElementById('create');
-    const leaveBtn = document.getElementById('leave');
-    const aiDifficultyDiv = document.getElementById('aiDifficultyButtons');
-    const aiButtons = aiDifficultyDiv.querySelectorAll('button');
-
-    // Game State
-    let rows = 6, cols = 7;
-    let board = [];
-    let currentPlayer = PLAYER_RED;
-    let gameState = 'idle'; // idle, waiting, playing, ended
-    let myPlayer = PLAYER_NONE;
-    let gameId = null;
-    let gameMode = 'pvp';
-    let currentGame = null;
-    let aiDifficulty = 'normal';
-
-    // Discord Activity user info if available
-    let discordUser = null;
-
-    // All matches in memory
-    let matches = {};
-
-    // Initialize UI dropdowns
-    function setupUI() {
-      for(let i=4; i<=10; i++){
-        rowSel.add(new Option(i,i));
-        colSel.add(new Option(i,i));
+    // AI behavior fix
+    function aiMove() {
+      if (gameState !== 'playing' || currentPlayer !== PLAYER_YELLOW) return;
+      const availableCols = [];
+      for (let c = 0; c < cols; c++) {
+        if (board[0][c] === PLAYER_NONE) availableCols.push(c);
       }
-      rowSel.value = rows;
-      colSel.value = cols;
-
-      rowSel.onchange = () => { rows = +rowSel.value; updateCanvasSize(); };
-      colSel.onchange = () => { cols = +colSel.value; updateCanvasSize(); };
-      modeSel.onchange = () => {
-        gameMode = modeSel.value;
-        toggleAIDifficulty(gameMode === 'ai');
-      };
-
-      createBtn.onclick = onCreate;
-      leaveBtn.onclick = onLeave;
-      canvas.addEventListener('click', onClick);
-
-      aiButtons.forEach(btn => {
-        btn.onclick = () => {
-          aiButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          aiDifficulty = btn.getAttribute('data-level');
-          setStatus(`AI difficulty set to ${aiDifficulty}`);
-        };
-      });
-
-      toggleAIDifficulty(false);
-      updateUIButtons();
-      renderMatchList();
-    }
-
-    function toggleAIDifficulty(show){
-      aiDifficultyDiv.style.display = show ? 'flex' : 'none';
-    }
-
-    function updateCanvasSize(){
-      canvas.width = cols * 70;
-      canvas.height = rows * 70;
-      drawBoard();
-    }
-
-    function setStatus(text){
-      statusText.textContent = text;
-    }
-
-    function updateUIButtons(){
-      leaveBtn.disabled = !(gameState === 'playing' || gameState === 'waiting' || gameState === 'ended');
-      createBtn.disabled = (gameState === 'playing' || gameState === 'waiting');
-    }
-
-    function initBoard(){
-      board = Array.from({length: rows}, () => Array(cols).fill(PLAYER_NONE));
-      updateCanvasSize();
-    }
-
-    function drawBoard(){
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for(let y=0; y<rows; y++){
-        for(let x=0; x<cols; x++){
-          ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
-                          board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
-          ctx.beginPath();
-          ctx.arc(35 + x*70, 35 + y*70, 30, 0, 2*Math.PI);
-          ctx.fill();
-        }
-      }
-    }
-
-    // Create a new match
-    function onCreate(){
-      rows = +rowSel.value;
-      cols = +colSel.value;
-      gameMode = modeSel.value;
-
-      initBoard();
-      gameId = Math.random().toString(36).substr(2,8);
-
-      currentGame = {
-        id: gameId,
-        rows,
-        cols,
-        mode: gameMode,
-        difficulty: aiDifficulty,
-        state: gameMode === 'ai' ? 'playing' : 'waiting',
-        owner: discordUser,
-      };
-
-      myPlayer = PLAYER_RED;
-      currentPlayer = PLAYER_RED;
-      gameState = currentGame.state;
-
-      if(gameMode === 'ai'){
-        setStatus("Your turn!");
-        toggleMatchList(false);
-      } else {
-        setStatus("Waiting for opponent...");
-        toggleMatchList(true);
-        addMatch(currentGame);
-      }
-      updateUIButtons();
-
-      broadcast({type:'create', game: currentGame});
-    }
-
-    // Join a match by id
-    function onJoinGame(id){
-      if(!matches[id]){
-        setStatus("Match not found.");
-        return;
-      }
-      currentGame = matches[id];
-      rows = currentGame.rows;
-      cols = currentGame.cols;
-      gameId = currentGame.id;
-      myPlayer = PLAYER_YELLOW;
-      currentPlayer = PLAYER_RED;
-      initBoard();
-      gameState = 'playing';
-      setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-      broadcast({type:'join', gameId});
-      toggleMatchList(false);
-      updateUIButtons();
-
-      if(gameMode === 'ai' && currentPlayer !== myPlayer){
-        setTimeout(aiMove, 500);
-      }
-    }
-
-    // Leave the current game
-    function onLeave(){
-      if(!currentGame) return;
-
-      if(currentGame.owner && discordUser && currentGame.owner.id === discordUser.id){
-        // Owner leaves = delete match
-        broadcast({type:'leave', gameId});
-        delete matches[gameId];
-        resetGame();
-        toggleMatchList(true);
-        renderMatchList();
-      } else {
-        // Player leaves = just leave match
-        broadcast({type:'playerLeave', gameId, playerId: discordUser ? discordUser.id : null});
-        resetGame();
-        toggleMatchList(true);
-      }
-    }
-
-    function resetGame(){
-      gameState = 'idle';
-      currentGame = null;
-      board = [];
-      myPlayer = PLAYER_NONE;
-      gameId = null;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      setStatus("6 7 wheres the mangos");
-      updateUIButtons();
-    }
-
-    // Handle board clicks
-    function onClick(e){
-      if(gameState !== 'playing' || myPlayer !== currentPlayer) return;
-
-      const col = Math.floor(e.offsetX / 70);
-      if(col < 0 || col >= cols) return;
-
-      for(let y = rows - 1; y >= 0; y--){
-        if(board[y][col] === PLAYER_NONE){
-          board[y][col] = myPlayer;
+      if (availableCols.length === 0) return;
+      const col = availableCols[Math.floor(Math.random() * availableCols.length)];
+      for (let y = rows - 1; y >= 0; y--) {
+        if (board[y][col] === PLAYER_NONE) {
+          board[y][col] = PLAYER_YELLOW;
           drawBoard();
-          broadcast({type:'move', col, row: y, player: myPlayer, gameId});
-          if(checkWin()){
-            gameState = 'ended';
-            setStatus("You win!");
-            broadcast({type:'end', winner: myPlayer, gameId});
-          } else if(isBoardFull()){
-            gameState = 'ended';
-            setStatus("Draw!");
-            broadcast({type:'end', winner: PLAYER_NONE, gameId});
-          } else {
-            currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-            setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-            if(gameMode === 'ai' && currentPlayer !== myPlayer){
-              setTimeout(aiMove, 500);
-            }
-          }
+          currentPlayer = PLAYER_RED;
+          updateStatus("Your turn");
           break;
         }
       }
     }
-
-    function isBoardFull(){
-      return board.every(row => row.every(cell => cell !== PLAYER_NONE));
-    }
-
-    // Check win conditions
-    function checkWin(){
-      // Horizontal, vertical, diagonal checks
-      for(let y=0; y<rows; y++){
-        for(let x=0; x<cols; x++){
-          if(board[y][x] === PLAYER_NONE) continue;
-          const p = board[y][x];
-
-          // Horizontal
-          if(x+3 < cols &&
-            p === board[y][x+1] &&
-            p === board[y][x+2] &&
-            p === board[y][x+3]) return true;
-
-          // Vertical
-          if(y+3 < rows &&
-            p === board[y+1][x] &&
-            p === board[y+2][x] &&
-            p === board[y+3][x]) return true;
-
-          // Diagonal down-right
-          if(x+3 < cols && y+3 < rows &&
-            p === board[y+1][x+1] &&
-            p === board[y+2][x+2] &&
-            p === board[y+3][x+3]) return true;
-
-          // Diagonal up-right
-          if(x+3 < cols && y-3 >= 0 &&
-            p === board[y-1][x+1] &&
-            p === board[y-2][x+2] &&
-            p === board[y-3][x+3]) return true;
-        }
-      }
-      return false;
-    }
-
-    // AI move (simple example - picks random available column)
-    function aiMove(){
-      if(gameState !== 'playing' || myPlayer === currentPlayer) return;
-
-      let availableCols = [];
-      for(let c=0; c<cols; c++){
-        if(board[0][c] === PLAYER_NONE) availableCols.push(c);
-      }
-      if(availableCols.length === 0) return; // board full?
-
-      const chosenCol = availableCols[Math.floor(Math.random()*availableCols.length)];
-
-      for(let y=rows-1; y>=0; y--){
-        if(board[y][chosenCol] === PLAYER_NONE){
-          board[y][chosenCol] = currentPlayer;
-          drawBoard();
-          broadcast({type:'move', col: chosenCol, row: y, player: currentPlayer, gameId});
-          if(checkWin()){
-            gameState = 'ended';
-            setStatus(currentPlayer === myPlayer ? "You win!" : "You lose.");
-            broadcast({type:'end', winner: currentPlayer, gameId});
-          } else if(isBoardFull()){
-            gameState = 'ended';
-            setStatus("Draw!");
-            broadcast({type:'end', winner: PLAYER_NONE, gameId});
-          } else {
-            currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-            setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          }
-          break;
-        }
-      }
-    }
-
-    // Matches management
-    function addMatch(match){
-      matches[match.id] = match;
-      renderMatchList();
-    }
-
-    function removeMatch(id){
-      delete matches[id];
-      renderMatchList();
-    }
-
-    // Render the matches list, hiding matches owned by current user
-    function renderMatchList(){
-      let availableMatches = Object.values(matches).filter(m => m.state === 'waiting');
-
-      if(discordUser){
-        availableMatches = availableMatches.filter(m => !m.owner || m.owner.id !== discordUser.id);
-      }
-
-      if(availableMatches.length === 0){
-        matchesContainer.textContent = "No matches available.";
-        return;
-      }
-      matchesContainer.innerHTML = "";
-
-      availableMatches.forEach(m => {
-        const div = document.createElement('div');
-        div.className = "matchItem";
-
-        let ownerHTML = '';
-        if(m.owner){
-          const avatar = m.owner.avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
-          ownerHTML = `<div class="playerInfo">
-            <img src="${avatar}" alt="Avatar" />
-            <span>${m.owner.username || 'Unknown'}</span>
-          </div>`;
-        } else {
-          ownerHTML = `<div class="playerInfo"><span>Unknown</span></div>`;
-        }
-
-        div.innerHTML = `
-          ${ownerHTML}
-          <span>Match ${m.id} (${m.rows}x${m.cols}) Mode: ${m.mode}</span>
-          <button>Join</button>
-        `;
-
-        const btn = div.querySelector('button');
-        btn.onclick = () => onJoinGame(m.id);
-
-        matchesContainer.appendChild(div);
-      });
-    }
-
-    // Show/hide the match list container
-    function toggleMatchList(show){
-      document.getElementById('matchList').style.display = show ? 'block' : 'none';
-    }
-
-    // Broadcast event to Discord Activity or fallback (no DiscordSDK: local simulation)
-    function broadcast(data){
-      if(typeof DiscordSDK !== 'undefined'){
-        DiscordSDK.activity.broadcast(data);
-      } else {
-        // Local simulation (for testing) - directly handle event for now
-        handleEvent(data);
-      }
-    }
-
-    // Handle broadcasted events
-    function handleEvent(data){
-      if(data.game?.id){
-        addMatch(data.game);
-      }
-      if(data.gameId && gameId && data.gameId !== gameId) return;
-
-      switch(data.type){
-        case 'create':
-          addMatch(data.game);
-          break;
-        case 'join':
-          if(matches[data.gameId]){
-            matches[data.gameId].state = 'playing';
-            if(gameId === data.gameId){
-              gameState = 'playing';
-              setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-              toggleMatchList(false);
-              updateUIButtons();
-              if(gameMode === 'ai' && currentPlayer !== myPlayer){
-                setTimeout(aiMove, 500);
-              }
-            }
-            renderMatchList();
-          }
-          break;
-        case 'move':
-          board[data.row][data.col] = data.player;
-          drawBoard();
-          currentPlayer = data.player === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          break;
-        case 'end':
-          gameState = 'ended';
-          setStatus(data.winner === myPlayer ? "You win!" : "You lose.");
-          updateUIButtons();
-          toggleMatchList(true);
-          break;
-        case 'leave':
-          removeMatch(data.gameId);
-          if(gameId === data.gameId){
-            resetGame();
-            toggleMatchList(true);
-          }
-          break;
-        case 'playerLeave':
-          // Player left a match but match remains, no direct effect here
-          break;
-      }
-    }
-
-    // Initialize Discord user info if possible
-    function setupDiscordUser(){
-      if(typeof DiscordSDK !== "undefined"){
-        DiscordSDK.ready().then(() => {
-          DiscordSDK.getCurrentUser().then(user => {
-            discordUser = {
-              id: user.id,
-              username: user.username,
-              avatar: user.avatar_url
-            };
-            setStatus("6 7 wheres the mangos");
-          });
-          DiscordSDK.activity.on('broadcast', handleEvent);
-        });
-      } else {
-        setStatus("6 7 wheres the mangos");
-      }
-    }
-
-    // Initialize everything
-    function init(){
-      setupUI();
-      setupDiscordUser();
-      initBoard();
-    }
-
-    init();
-
   </script>
 </body>
 </html>
