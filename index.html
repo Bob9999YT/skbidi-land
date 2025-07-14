@@ -850,58 +850,63 @@ function isBoardFullOnBoard(board) {
 }
 
   function addMatch(game) {
+    if (game.mode === 'pvp') {
     matches[game.id] = game;
     renderMatchList();
   }
 
-  function renderMatchList() {
-    matchesContainer.innerHTML = '';
+function renderMatchList() {
+  matchesContainer.innerHTML = '';
 
-    const userId = discordUser ? discordUser.id : 'local_player';
-    const visibleMatches = Object.values(matches).filter(m => m.ownerId !== userId);
+  const userId = discordUser ? discordUser.id : 'local_player';
+  
+  // Filter out AI matches AND matches from the current user
+  const visibleMatches = Object.values(matches).filter(m => 
+    m.ownerId !== userId && m.mode !== 'ai'
+  );
 
-    if(visibleMatches.length === 0) {
-      matchesContainer.textContent = "No matches available.";
-      return;
-    }
-
-    for(let match of visibleMatches){
-      const div = document.createElement('div');
-      div.className = 'matchItem';
-
-      const playerInfo = document.createElement('div');
-      playerInfo.className = 'playerInfo';
-      
-      // Add avatar if available
-      if(match.ownerAvatar) {
-        const img = document.createElement('img');
-        img.src = `https://cdn.discordapp.com/avatars/${match.ownerId}/${match.ownerAvatar}.png?size=64`;
-        img.onerror = () => { 
-          img.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(match.ownerId) % 5}.png`; 
-        };
-        playerInfo.appendChild(img);
-      }
-
-      const matchDetails = document.createElement('div');
-      matchDetails.innerHTML = `
-        <div style="font-weight: bold;">${match.ownerName || 'Unknown Player'}</div>
-        <div style="font-size: 0.9em; opacity: 0.8;">${match.rows}×${match.cols} • ${match.mode.toUpperCase()}</div>
-      `;
-      playerInfo.appendChild(matchDetails);
-
-      div.appendChild(playerInfo);
-
-      const joinBtn = document.createElement('button');
-      joinBtn.textContent = 'Join';
-      joinBtn.addEventListener('click', () => {
-        onJoinGame(match.id);
-      });
-      div.appendChild(joinBtn);
-
-      matchesContainer.appendChild(div);
-    }
+  if(visibleMatches.length === 0) {
+    matchesContainer.textContent = "No matches available.";
+    return;
   }
 
+  for(let match of visibleMatches){
+    const div = document.createElement('div');
+    div.className = 'matchItem';
+
+    const playerInfo = document.createElement('div');
+    playerInfo.className = 'playerInfo';
+    
+    // Add avatar if available
+    if(match.ownerAvatar) {
+      const img = document.createElement('img');
+      img.src = `https://cdn.discordapp.com/avatars/${match.ownerId}/${match.ownerAvatar}.png?size=64`;
+      img.onerror = () => { 
+        img.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(match.ownerId) % 5}.png`; 
+      };
+      playerInfo.appendChild(img);
+    }
+
+    const matchDetails = document.createElement('div');
+    matchDetails.innerHTML = `
+      <div style="font-weight: bold;">${match.ownerName || 'Unknown Player'}</div>
+      <div style="font-size: 0.9em; opacity: 0.8;">${match.rows}×${match.cols} • PvP</div>
+    `;
+    playerInfo.appendChild(matchDetails);
+
+    div.appendChild(playerInfo);
+
+    const joinBtn = document.createElement('button');
+    joinBtn.textContent = 'Join';
+    joinBtn.addEventListener('click', () => {
+      onJoinGame(match.id);
+    });
+    div.appendChild(joinBtn);
+
+    matchesContainer.appendChild(div);
+  }
+}
+ 
   function toggleMatchList(show) {
     document.getElementById('matchList').style.display = show ? 'block' : 'none';
   }
