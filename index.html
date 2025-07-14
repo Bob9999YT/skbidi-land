@@ -1,707 +1,256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Connect Four</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0; height: 100%; width: 100%;
-    background-color: #1e1e2f;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #fff;
-  }
-  body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    min-height: 100vh;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    max-width: 600px;
-    margin-bottom: 20px;
-  }
-  h1 {
-    font-size: 2rem;
-    color: #ffaa00;
-    margin: 0;
-    text-align: center;
-  }
-  .user-profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #29293d;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 2px solid #ffaa00;
-    user-select: none;
-  }
-  .user-profile .avatar-circle {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: #ffaa00;
-    color: #111;
-    font-weight: 700;
-    font-size: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-transform: uppercase;
-    overflow: hidden;
-  }
-  .user-profile .avatar-circle img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-  .user-profile span {
-    font-weight: 600;
-    color: #ffaa00;
-  }
-  #matchList {
-    max-width: 600px;
-    width: 100%;
-    margin-top: 10px;
-  }
-  #matchesContainer {
-    max-height: 240px;
-    overflow-y: auto;
-    padding: 8px;
-    background: #1f1f2b;
-    border: 1.5px solid #ffaa00;
-    border-radius: 6px;
-  }
-  .matchItem {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 8px;
-    border-bottom: 1px solid #444;
-  }
-  .matchItem:last-child {
-    border-bottom: none;
-  }
-  .matchPlayer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .matchPlayer .avatar-circle {
-    width: 24px;
-    height: 24px;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-  button {
-    background-color: #ffaa00;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  button:disabled {
-    background-color: #555;
-    cursor: default;
-  }
-  #aiDifficultyButtons {
-    margin-top: 10px;
-    display: none;
-    gap: 8px;
-  }
-  #aiDifficultyButtons button {
-    padding: 4px 8px;
-    font-weight: 600;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-  }
-  #aiDifficultyButtons button.active {
-    background-color: #ffaa00;
-    color: black;
-  }
-  canvas {
-    margin-top: 15px;
-    background-color: #ffaa00;
-    border-radius: 10px;
-    cursor: pointer;
-  }
-  #status {
-    margin-top: 15px;
-    text-align: center;
-    font-weight: 600;
-    min-height: 30px;
-  }
-  .hide {
-    display: none !important;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect Four</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%; width: 100%;
+      background-color: #1e1e2f;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 2rem;
+      color: #ffaa00;
+      margin: 0;
+      text-align: center;
+    }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #29293d;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid #ffaa00;
+      user-select: none;
+    }
+    .user-profile .avatar-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: #ffaa00;
+      font-size: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .user-profile .avatar-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .user-profile span {
+      font-weight: 600;
+      color: #ffaa00;
+    }
+    #matchList .playerInfo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    #usernamePromptContainer input, #usernamePromptContainer button {
+      margin: 4px 0;
+    }
+  </style>
 </head>
 <body>
-
-<div id="usernamePromptContainer" style="max-width: 400px; width: 100%;">
-  <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
-  <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 2px solid #ffaa00; border-radius: 6px; background:#29293d; color:white;" />
-  <input id="avatarUrlInput" type="text" placeholder="Avatar Image/GIF URL (optional)"
-         style="width: 100%; padding: 8px; margin-bottom: 15px; border: 2px solid #ffaa00; border-radius: 6px; background:#29293d; color:white;" />
-  <button id="usernameSubmit" disabled style="width: 100%;">Start Playing</button>
-</div>
-
-<div class="header hide">
-  <h1>Connect Four</h1>
-  <div class="user-profile">
-    <div class="avatar-circle" id="userAvatar"></div>
-    <span id="usernameDisplay">Guest</span>
+  <div id="usernamePromptContainer">
+    <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
+    <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" />
+    <input id="avatarUrlInput" type="text" placeholder="Avatar Image/GIF URL (optional)"
+           style="margin:10px 0; padding:8px; width:100%; background:#1f1f2b; color:white; border:2px solid #ffaa00; border-radius:6px;" />
+    <button id="usernameSubmit" disabled>Start Playing</button>
   </div>
-</div>
 
-<div class="menu hide" style="max-width: 600px; width: 100%; margin-top: 10px; gap: 12px; display: flex; flex-wrap: wrap; align-items: center;">
-  <label style="color: #ffaa00; font-weight: 600;">Rows:
-    <select id="rows"></select>
-  </label>
-  <label style="color: #ffaa00; font-weight: 600;">Columns:
-    <select id="cols"></select>
-  </label>
-  <label style="color: #ffaa00; font-weight: 600;">Mode:
-    <select id="mode">
-      <option value="pvp">Player vs Player</option>
-      <option value="ai">Player vs AI</option>
-    </select>
-  </label>
-  <button id="create">Create Game</button>
-  <button id="leave" disabled>Leave Game</button>
-</div>
-
-<div id="aiDifficultyButtons" class="hide" style="max-width: 600px; width: 100%; justify-content: center; gap: 8px;">
-  <button data-level="easy">Easy</button>
-  <button data-level="normal" class="active">Normal</button>
-  <button data-level="hard">Hard</button>
-  <button data-level="insane">Insane</button>
-  <button data-level="impossible">Impossible</button>
-</div>
-
-<canvas id="gameCanvas" width="490" height="420" class="hide"></canvas>
-
-<div id="status" class="hide"></div>
-
-<div id="matchList" class="hide" style="max-width: 600px; width: 100%; margin-top: 10px;">
-  <h3 style="color:#ffaa00; text-align:center;">Available Matches</h3>
-  <button id="refreshMatchesBtn">Refresh Matches</button>
-  <div id="matchesContainer">
-    <div class="no-matches" style="text-align:center; color:#888;">No matches available.</div>
+  <div class="header" style="display:none;">
+    <h1>Connect Four</h1>
+    <div class="user-profile">
+      <div class="avatar-circle" id="userAvatar">G</div>
+      <span id="username">Guest</span>
+    </div>
   </div>
-</div>
 
-<script>
-(() => {
-  const PLAYER_NONE=0, PLAYER_RED=1, PLAYER_YELLOW=2;
-  let currentUser = { username: null, avatarUrl: null, id: null };
-  let rows = 6, cols = 7;
-  let board = [];
-  let currentPlayer = PLAYER_RED;
-  let gameState = 'idle';
-  let myPlayer = PLAYER_NONE;
-  let gameId = null;
-  let gameMode = 'pvp';
-  let aiDifficulty = 'normal';
-  let isInMatch = false;
+  <div id="gameUI" style="display:none;">
+    <div class="menu">
+      <select id="rows"></select>
+      <select id="cols"></select>
+      <select id="mode">
+        <option value="pvp">Player vs Player</option>
+        <option value="ai">Player vs AI</option>
+      </select>
+      <button id="create">Create Game</button>
+      <button id="leave" disabled>Leave Game</button>
+    </div>
 
-  const STORAGE_KEY = 'connect_four_global_matches';
-  const matches = {};
+    <div id="matchList">
+      <h3 style="color:#ffaa00;">Available Matches</h3>
+      <button id="refreshMatchesBtn">Refresh Matches</button>
+      <div id="matchesContainer" style="margin-top:10px;"></div>
+    </div>
 
-  const usernamePrompt = document.getElementById('usernamePromptContainer');
-  const usernameInput = document.getElementById('usernameInput');
-  const avatarUrlInput = document.getElementById('avatarUrlInput');
-  const usernameSubmit = document.getElementById('usernameSubmit');
-  const header = document.querySelector('.header');
-  const userAvatarDiv = document.getElementById('userAvatar');
-  const usernameDisplay = document.getElementById('usernameDisplay');
-  const menu = document.querySelector('.menu');
-  const rowSel = document.getElementById('rows');
-  const colSel = document.getElementById('cols');
-  const modeSel = document.getElementById('mode');
-  const createBtn = document.getElementById('create');
-  const leaveBtn = document.getElementById('leave');
-  const aiDiv = document.getElementById('aiDifficultyButtons');
-  const aiBtns = aiDiv.querySelectorAll('button');
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const statusText = document.getElementById('status');
-  const matchListDiv = document.getElementById('matchList');
-  const matchesContainer = document.getElementById('matchesContainer');
-  const refreshBtn = document.getElementById('refreshMatchesBtn');
+    <canvas id="gameCanvas" width="420" height="360" style="margin-top:20px; display:none;"></canvas>
+    <div id="status" style="margin-top:10px;"></div>
+  </div>
 
-  function getAvatarColor(name) {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
-    return colors[Math.abs(hash) % colors.length];
-  }
+  <script>
+    const usernameInput = document.getElementById('usernameInput');
+    const avatarUrlInput = document.getElementById('avatarUrlInput');
+    const usernameSubmit = document.getElementById('usernameSubmit');
+    const usernameSpan = document.getElementById('username');
+    const userAvatarDiv = document.getElementById('userAvatar');
+    const usernamePrompt = document.getElementById('usernamePromptContainer');
+    const gameUI = document.getElementById('gameUI');
+    const header = document.querySelector('.header');
+    const createBtn = document.getElementById('create');
+    const leaveBtn = document.getElementById('leave');
+    const matchList = document.getElementById('matchList');
+    const matchesContainer = document.getElementById('matchesContainer');
+    const refreshMatchesBtn = document.getElementById('refreshMatchesBtn');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    const rowSelect = document.getElementById('rows');
+    const colSelect = document.getElementById('cols');
+    const modeSelect = document.getElementById('mode');
 
-  function createId() {
-    return 'match_' + Math.random().toString(36).substr(2, 9);
-  }
+    let currentUser = { username: '', avatarUrl: '' };
+    let matches = {};
+    let gameId = null;
+    let myTurn = false;
 
-  function updateUserProfile() {
-    usernameDisplay.textContent = currentUser.username;
-    userAvatarDiv.innerHTML = '';
-    if (currentUser.avatarUrl && currentUser.avatarUrl.startsWith('http')) {
-      const img = document.createElement('img');
-      img.src = currentUser.avatarUrl;
-      img.alt = currentUser.username;
-      userAvatarDiv.appendChild(img);
-      userAvatarDiv.style.backgroundColor = 'transparent';
-    } else {
-      userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
-      userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
-    }
-  }
-
-  function initBoard() {
-    board = [];
-    for(let r=0;r<rows;r++) {
-      board.push(Array(cols).fill(PLAYER_NONE));
-    }
-    updateCanvasSize();
-  }
-
-  function updateCanvasSize() {
-    canvas.width = cols * 70;
-    canvas.height = rows * 70;
-    drawBoard();
-  }
-
-  function drawBoard() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ffaa00';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = c * 70;
-        const y = r * 70;
-        ctx.fillStyle = '#1e1e2f';
-        ctx.beginPath();
-        ctx.arc(x + 35, y + 35, 30, 0, 2 * Math.PI);
-        ctx.fill();
-
-        if (board[r][c] === PLAYER_RED) {
-          ctx.fillStyle = '#ff3333';
-          ctx.beginPath();
-          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
-          ctx.fill();
-        } else if (board[r][c] === PLAYER_YELLOW) {
-          ctx.fillStyle = '#ffff66';
-          ctx.beginPath();
-          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+    function getAvatarColor(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
       }
+      const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
+      return colors[Math.abs(hash) % colors.length];
     }
-  }
 
-  function findLowestEmptyRow(col) {
-    for (let r = rows - 1; r >= 0; r--) {
-      if (board[r][col] === PLAYER_NONE) return r;
-    }
-    return -1;
-  }
-
-  function checkWin(player) {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r][c+i] === player)) return true;
-      }
-    }
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r <= rows - 4; r++) {
-        if ([0,1,2,3].every(i => board[r+i][c] === player)) return true;
-      }
-    }
-    for (let r = 0; r <= rows - 4; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r+i][c+i] === player)) return true;
-      }
-    }
-    for (let r = 3; r < rows; r++) {
-      for (let c = 0; c <= cols - 4; c++) {
-        if ([0,1,2,3].every(i => board[r-i][c+i] === player)) return true;
-      }
-    }
-    return false;
-  }
-
-  function checkDraw() {
-    return board[0].every(cell => cell !== PLAYER_NONE);
-  }
-
-  function loadGlobalMatches() {
-    let d = localStorage.getItem(STORAGE_KEY);
-    if (!d) return {};
-    try {
-      return JSON.parse(d);
-    } catch {
-      return {};
-    }
-  }
-
-  function saveGlobalMatches() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
-    window.dispatchEvent(new Event('storage'));
-  }
-
-  function refreshMatchesList() {
-    matchesContainer.innerHTML = '';
-    let any = false;
-    Object.values(matches).forEach(m => {
-      if (m.status !== 'waiting') return;
-      if (isInMatch) return;
-      if (m.creatorId === currentUser.id) return;
-
-      any = true;
-
-      const div = document.createElement('div');
-      div.className = 'matchItem';
-
-      const playerDiv = document.createElement('div');
-      playerDiv.className = 'matchPlayer';
-
-      const avatar = document.createElement('div');
-      avatar.className = 'avatar-circle';
-      avatar.style.width = '24px';
-      avatar.style.height = '24px';
-      avatar.style.fontSize = '14px';
-      avatar.style.flexShrink = '0';
-      if (m.creatorAvatarUrl && m.creatorAvatarUrl.startsWith('http')) {
+    function setUserProfile() {
+      usernameSpan.textContent = currentUser.username;
+      userAvatarDiv.innerHTML = '';
+      if (currentUser.avatarUrl) {
         const img = document.createElement('img');
-        img.src = m.creatorAvatarUrl;
-        img.alt = m.creatorName;
-        avatar.appendChild(img);
+        img.src = currentUser.avatarUrl;
+        userAvatarDiv.appendChild(img);
       } else {
-        avatar.textContent = m.creatorName.charAt(0).toUpperCase();
-        avatar.style.backgroundColor = getAvatarColor(m.creatorName);
+        userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
+        userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
       }
+    }
 
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = m.creatorName;
+    function renderMatchList() {
+      matchesContainer.innerHTML = '';
+      Object.keys(matches).forEach(id => {
+        const match = matches[id];
+        if (match.creator === currentUser.username) return;
+        const div = document.createElement('div');
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar-circle';
+        avatar.textContent = match.creator.charAt(0).toUpperCase();
+        avatar.style.backgroundColor = getAvatarColor(match.creator);
+        avatar.style.width = '24px';
+        avatar.style.height = '24px';
+        avatar.style.fontSize = '14px';
+        const span = document.createElement('span');
+        span.textContent = match.creator;
+        const btn = document.createElement('button');
+        btn.textContent = 'Join';
+        btn.onclick = () => joinMatch(id);
+        const info = document.createElement('div');
+        info.className = 'playerInfo';
+        info.appendChild(avatar);
+        info.appendChild(span);
+        div.appendChild(info);
+        div.appendChild(btn);
+        matchesContainer.appendChild(div);
+      });
+    }
 
-      playerDiv.appendChild(avatar);
-      playerDiv.appendChild(nameSpan);
+    function joinMatch(id) {
+      const match = matches[id];
+      if (!match) return;
+      gameId = id;
+      myTurn = false;
+      matches[gameId].opponent = currentUser.username;
+      renderMatchList();
+      updateStatus(`${match.creator}'s turn`, match.creator);
+      canvas.style.display = 'block';
+    }
 
-      const joinBtn = document.createElement('button');
-      joinBtn.textContent = 'Join';
-      joinBtn.disabled = isInMatch;
-      joinBtn.style.flexShrink = '0';
-      joinBtn.onclick = () => joinMatch(m.id);
+    function updateStatus(text, username) {
+      status.innerHTML = `<div class="user-profile" style="display:inline-flex;transform:scale(0.85);"><div class="avatar-circle">${username.charAt(0).toUpperCase()}</div><span>${text}</span></div>`;
+    }
 
-      div.appendChild(playerDiv);
-      div.appendChild(joinBtn);
-
-      matchesContainer.appendChild(div);
+    usernameInput.addEventListener('input', () => {
+      usernameSubmit.disabled = usernameInput.value.trim().length < 2;
     });
 
-    if (!any) {
-      const noneDiv = document.createElement('div');
-      noneDiv.className = 'no-matches';
-      noneDiv.style.textAlign = 'center';
-      noneDiv.style.color = '#888';
-      noneDiv.textContent = 'No matches available.';
-      matchesContainer.appendChild(noneDiv);
-    }
-  }
-
-  function updateUIForMatch() {
-    if (isInMatch) {
-      matchListDiv.classList.add('hide');
-      createBtn.disabled = true;
-      leaveBtn.disabled = false;
-      menu.querySelectorAll('select, button').forEach(el => {
-        if (el !== leaveBtn) el.disabled = true;
-      });
-      canvas.classList.remove('hide');
-      statusText.classList.remove('hide');
-    } else {
-      matchListDiv.classList.remove('hide');
-      createBtn.disabled = false;
-      leaveBtn.disabled = true;
-      menu.querySelectorAll('select, button').forEach(el => {
-        if (el !== createBtn) el.disabled = false;
-      });
-      canvas.classList.add('hide');
-      statusText.classList.add('hide');
-    }
-  }
-
-  function updateStatus(text, avatarUrl) {
-    statusText.innerHTML = '';
-    if (avatarUrl) {
-      const img = document.createElement('img');
-      img.src = avatarUrl;
-      img.alt = 'Player Avatar';
-      img.style.width = '20px';
-      img.style.height = '20px';
-      img.style.borderRadius = '50%';
-      img.style.verticalAlign = 'middle';
-      img.style.marginRight = '8px';
-      statusText.appendChild(img);
-    }
-    const span = document.createElement('span');
-    span.textContent = text;
-    statusText.appendChild(span);
-  }
-
-  function createMatch() {
-    if (isInMatch) return;
-    rows = +rowSel.value;
-    cols = +colSel.value;
-
-    initBoard();
-
-    currentPlayer = PLAYER_RED;
-    myPlayer = PLAYER_RED;
-    gameState = 'playing';
-
-    gameId = createId();
-    isInMatch = true;
-
-    matches[gameId] = {
-      id: gameId,
-      board: JSON.parse(JSON.stringify(board)),
-      rows,
-      cols,
-      currentPlayer,
-      status: 'waiting',
-      mode: gameMode,
-      creatorId: currentUser.id,
-      creatorName: currentUser.username,
-      creatorAvatarUrl: currentUser.avatarUrl,
-      players: {
-        [currentUser.id]: { player: PLAYER_RED, username: currentUser.username, avatarUrl: currentUser.avatarUrl }
-      },
-      aiDifficulty
+    usernameSubmit.onclick = () => {
+      currentUser.username = usernameInput.value.trim();
+      currentUser.avatarUrl = avatarUrlInput.value.trim();
+      usernamePrompt.style.display = 'none';
+      header.style.display = 'flex';
+      gameUI.style.display = 'block';
+      setUserProfile();
+      renderMatchList();
     };
 
-    saveGlobalMatches();
-    updateUIForMatch();
-    drawBoard();
-    updateStatus(`Waiting for opponent to join...`);
+    createBtn.onclick = () => {
+      gameId = 'match_' + Math.random().toString(36).substr(2, 9);
+      matches[gameId] = {
+        creator: currentUser.username,
+        avatar: currentUser.avatarUrl
+      };
+      myTurn = true;
+      renderMatchList();
+      updateStatus(`${currentUser.username}'s turn`, currentUser.username);
+      canvas.style.display = 'block';
+    };
 
-    refreshMatchesList();
-  }
+    leaveBtn.onclick = () => {
+      if (gameId && matches[gameId]) delete matches[gameId];
+      gameId = null;
+      canvas.style.display = 'none';
+      status.textContent = '';
+      renderMatchList();
+    };
 
-  function joinMatch(id) {
-    if (isInMatch) return;
-    const match = matches[id];
-    if (!match || match.status !== 'waiting') return;
+    refreshMatchesBtn.onclick = renderMatchList;
 
-    rows = match.rows;
-    cols = match.cols;
-    currentPlayer = match.currentPlayer;
-    gameMode = match.mode;
-
-    board = JSON.parse(JSON.stringify(match.board));
-    initBoard();
-
-    myPlayer = PLAYER_YELLOW;
-    gameId = id;
-    isInMatch = true;
-
-    match.players[currentUser.id] = { player: PLAYER_YELLOW, username: currentUser.username, avatarUrl: currentUser.avatarUrl };
-    match.status = 'playing';
-
-    saveGlobalMatches();
-    updateUIForMatch();
-    drawBoard();
-
-    updateStatus(`${match.creatorName}'s turn`, match.creatorAvatarUrl);
-
-    refreshMatchesList();
-  }
-
-  function leaveMatch() {
-    if (!isInMatch) return;
-    const match = matches[gameId];
-    if (!match) return;
-
-    delete match.players[currentUser.id];
-
-    if (Object.keys(match.players).length === 0) {
-      delete matches[gameId];
-    } else if (currentUser.id === match.creatorId) {
-      const newCreatorId = Object.keys(match.players)[0];
-      const newCreator = match.players[newCreatorId];
-      match.creatorId = newCreatorId;
-      match.creatorName = newCreator.username;
-      match.creatorAvatarUrl = newCreator.avatarUrl;
-      match.status = 'waiting';
+    for (let i = 4; i <= 8; i++) {
+      const rowOpt = document.createElement('option');
+      rowOpt.value = i;
+      rowOpt.textContent = i;
+      rowSelect.appendChild(rowOpt);
+      const colOpt = document.createElement('option');
+      colOpt.value = i + 1;
+      colOpt.textContent = i + 1;
+      colSelect.appendChild(colOpt);
     }
-
-    gameId = null;
-    isInMatch = false;
-    myPlayer = PLAYER_NONE;
-    gameState = 'idle';
-
-    saveGlobalMatches();
-    updateUIForMatch();
-    refreshMatchesList();
-    updateStatus('');
-    drawBoard();
-  }
-
-  function makeMove(col) {
-    if (!isInMatch || gameState !== 'playing') return;
-    if (myPlayer !== currentPlayer) return;
-
-    const row = findLowestEmptyRow(col);
-    if (row === -1) return;
-
-    board[row][col] = currentPlayer;
-    drawBoard();
-
-    if (checkWin(currentPlayer)) {
-      updateStatus(`${currentUser.username === getPlayerUsername(currentPlayer) ? 'You' : getPlayerUsername(currentPlayer)} wins!`);
-      gameState = 'ended';
-      matches[gameId].status = 'ended';
-      saveGlobalMatches();
-      return;
-    }
-    if (checkDraw()) {
-      updateStatus('Draw!');
-      gameState = 'ended';
-      matches[gameId].status = 'ended';
-      saveGlobalMatches();
-      return;
-    }
-
-    currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-    matches[gameId].board = JSON.parse(JSON.stringify(board));
-    matches[gameId].currentPlayer = currentPlayer;
-    saveGlobalMatches();
-
-    const nextPlayer = getPlayerUsername(currentPlayer);
-    const nextAvatar = getPlayerAvatar(currentPlayer);
-    updateStatus(`${nextPlayer}'s turn`, nextAvatar);
-  }
-
-  function getPlayerUsername(playerNum) {
-    if (!gameId) return '';
-    const match = matches[gameId];
-    if (!match) return '';
-    for (const p of Object.values(match.players)) {
-      if (p.player === playerNum) return p.username;
-    }
-    return '';
-  }
-
-  function getPlayerAvatar(playerNum) {
-    if (!gameId) return null;
-    const match = matches[gameId];
-    if (!match) return null;
-    for (const p of Object.values(match.players)) {
-      if (p.player === playerNum) return p.avatarUrl;
-    }
-    return null;
-  }
-
-  usernameInput.addEventListener('input', () => {
-    usernameSubmit.disabled = usernameInput.value.trim().length === 0;
-  });
-
-  usernameSubmit.addEventListener('click', () => {
-    currentUser.username = usernameInput.value.trim();
-    currentUser.avatarUrl = avatarUrlInput.value.trim() || null;
-    currentUser.id = 'user_' + Math.random().toString(36).slice(2);
-
-    usernamePrompt.classList.add('hide');
-    header.classList.remove('hide');
-    menu.classList.remove('hide');
-    matchListDiv.classList.remove('hide');
-    statusText.classList.remove('hide');
-    canvas.classList.add('hide');
-
-    updateUserProfile();
-    refreshMatchesList();
-  });
-
-  createBtn.addEventListener('click', createMatch);
-  leaveBtn.addEventListener('click', leaveMatch);
-
-  modeSel.addEventListener('change', () => {
-    gameMode = modeSel.value;
-    aiDiv.style.display = (gameMode === 'ai') ? 'flex' : 'none';
-  });
-
-  aiBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      aiBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      aiDifficulty = btn.getAttribute('data-level');
-    });
-  });
-
-  canvas.addEventListener('click', e => {
-    if (!isInMatch || gameState !== 'playing') return;
-    if (myPlayer !== currentPlayer) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const colClicked = Math.floor(x / 70);
-    makeMove(colClicked);
-  });
-
-  refreshBtn.addEventListener('click', () => {
-    Object.assign(matches, loadGlobalMatches());
-    refreshMatchesList();
-  });
-
-  window.addEventListener('storage', (event) => {
-    if (event.key === STORAGE_KEY) {
-      const newMatches = loadGlobalMatches();
-      Object.assign(matches, newMatches);
-
-      if (isInMatch && !matches[gameId]) {
-        leaveMatch();
-      } else {
-        refreshMatchesList();
-      }
-    }
-  });
-
-  function populateRowColSelectors() {
-    for (let r = 4; r <= 8; r++) {
-      const option = document.createElement('option');
-      option.value = r;
-      option.textContent = r;
-      if (r === rows) option.selected = true;
-      rowSel.appendChild(option);
-    }
-    for (let c = 4; c <= 8; c++) {
-      const option = document.createElement('option');
-      option.value = c;
-      option.textContent = c;
-      if (c === cols) option.selected = true;
-      colSel.appendChild(option);
-    }
-  }
-  populateRowColSelectors();
-
-  initBoard();
-  drawBoard();
-  updateUIForMatch();
-
-})();
-</script>
-
+  </script>
 </body>
 </html>
