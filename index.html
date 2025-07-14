@@ -18,6 +18,7 @@
   #aiDifficultyButtons button.active { background:#ffdd55; color:#222; font-weight:bold; }
   #usernameInput { width: 300px; padding: 6px; margin-bottom: 10px; border-radius: 4px; border: none; }
   #menu { margin-top: 10px; }
+  #profileDisplay { margin-top: 10px; color:#ffaa00; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -28,6 +29,8 @@
   <input id="usernameInput" placeholder="Enter username" />
   <button id="usernameSubmit" disabled>Start</button>
 </div>
+
+<div id="profileDisplay" style="display:none;"></div>
 
 <div id="menu" style="display:none;">
   <label for="modeSelect">Choose Mode:</label>
@@ -60,17 +63,15 @@
 <script>
 (() => {
   // --- Your Firebase Config (Replace with your own!) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
-  authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
-  projectId: "sigma-skibidi-b9e1e",
-  storageBucket: "sigma-skibidi-b9e1e.firebasestorage.app",
-  messagingSenderId: "645635975542",
-  appId: "1:645635975542:web:f22275c0e2b9ae00f8b257",
-  measurementId: "G-G7DX318MFR"
-};
-
-
+  const firebaseConfig = {
+    apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
+    authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
+    projectId: "sigma-skibidi-b9e1e",
+    storageBucket: "sigma-skibidi-b9e1e.firebasestorage.app",
+    messagingSenderId: "645635975542",
+    appId: "1:645635975542:web:f22275c0e2b9ae00f8b257",
+    measurementId: "G-G7DX318MFR"
+  };
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
@@ -94,6 +95,7 @@ const firebaseConfig = {
   const usernamePrompt = document.getElementById('usernamePrompt');
   const usernameInput = document.getElementById('usernameInput');
   const usernameSubmit = document.getElementById('usernameSubmit');
+  const profileDisplay = document.getElementById('profileDisplay');
   const menu = document.getElementById('menu');
   const modeSelect = document.getElementById('modeSelect');
   const aiDifficultyButtons = document.getElementById('aiDifficultyButtons');
@@ -237,6 +239,7 @@ const firebaseConfig = {
       updateStatus("Waiting for opponent to join...");
       listenToMatch(gameId);
       renderMatchList();
+      canvas.style.display = 'block';
     } else if(gameMode === 'ai'){
       gameId = null;
       canvas.style.display = 'block';
@@ -408,14 +411,12 @@ const firebaseConfig = {
     return valid;
   }
 
-  // Simple random AI
   function easyAI(){
     const valid = getValidColsInBoard(board);
     if(valid.length === 0) return -1;
     return valid[Math.floor(Math.random()*valid.length)];
   }
 
-  // Basic block and win AI
   function normalAI(){
     for(let c=0; c<COLS; c++){
       let r = getAvailableRowInBoard(board, c);
@@ -434,7 +435,6 @@ const firebaseConfig = {
     return easyAI();
   }
 
-  // Center preference + normal
   function hardAI(){
     const center = Math.floor(COLS/2);
     const order = [];
@@ -452,9 +452,6 @@ const firebaseConfig = {
     return normalAI();
   }
 
-  // Minimax with alpha-beta pruning for Insane and Impossible
-
-  // Deep clone the board for simulating moves
   function cloneBoard(b){
     return b.map(row => row.slice());
   }
@@ -495,7 +492,8 @@ const firebaseConfig = {
     }
   }
 
-  function minimaxBestMove(depth){
+  function insaneAI(){
+    // Depth 4 minimax
     let bestScore = -Infinity;
     let bestCol = -1;
     const validCols = getValidColsInBoard(board);
@@ -503,22 +501,33 @@ const firebaseConfig = {
       const row = getAvailableRowInBoard(board, col);
       if(row === -1) continue;
       board[row][col] = PLAYER_YELLOW;
-      const score = minimax(board, depth - 1, false, -Infinity, Infinity);
+      const score = minimax(board, 4, false, -Infinity, Infinity);
       board[row][col] = PLAYER_NONE;
       if(score > bestScore){
         bestScore = score;
         bestCol = col;
       }
     }
-    return bestCol;
-  }
-
-  function insaneAI(){
-    return minimaxBestMove(3);
+    return bestCol === -1 ? easyAI() : bestCol;
   }
 
   function impossibleAI(){
-    return minimaxBestMove(5);
+    // Depth 6 minimax - very slow but good
+    let bestScore = -Infinity;
+    let bestCol = -1;
+    const validCols = getValidColsInBoard(board);
+    for(const col of validCols){
+      const row = getAvailableRowInBoard(board, col);
+      if(row === -1) continue;
+      board[row][col] = PLAYER_YELLOW;
+      const score = minimax(board, 6, false, -Infinity, Infinity);
+      board[row][col] = PLAYER_NONE;
+      if(score > bestScore){
+        bestScore = score;
+        bestCol = col;
+      }
+    }
+    return bestCol === -1 ? easyAI() : bestCol;
   }
 
   function aiMove(){
@@ -529,31 +538,85 @@ const firebaseConfig = {
       case 'hard': col = hardAI(); break;
       case 'insane': col = insaneAI(); break;
       case 'impossible': col = impossibleAI(); break;
-      default: col = normalAI();
+      default: col = easyAI(); break;
     }
-    if(col === -1) return;
-    const row = placePiece(col, PLAYER_YELLOW);
+    if(col === -1) {
+      updateStatus("Draw!");
+      isInMatch = false;
+      leaveMatchBtn.disabled = true;
+      return;
+    }
+    placePiece(col, PLAYER_YELLOW);
     drawBoard();
 
     if(checkWinner(PLAYER_YELLOW)){
       updateStatus("AI wins!");
-      gameState = 'ended';
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       return;
     }
     if(isBoardFull()){
       updateStatus("Draw!");
-      gameState = 'ended';
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       return;
     }
-    switchPlayer();
+
+    currentPlayer = PLAYER_RED;
     updateStatus("Your turn!");
   }
 
-  // --- UI & Event Handling ---
+  // --- Render matches list ---
+
+  function renderMatchList(){
+    if(gameMode !== 'pvp'){
+      matchListDiv.innerHTML = '';
+      return;
+    }
+    db.ref('matches').once('value', snapshot => {
+      const matches = snapshot.val();
+      matchListDiv.innerHTML = '<strong>Available Matches:</strong>';
+      if(!matches) {
+        matchListDiv.innerHTML += '<p>No matches available</p>';
+        return;
+      }
+      const matchEntries = Object.entries(matches)
+        .filter(([id, m]) => m.status === 'waiting' && m.owner.id !== currentUser.id);
+
+      if(matchEntries.length === 0){
+        matchListDiv.innerHTML += '<p>No matches available</p>';
+        return;
+      }
+
+      for(const [id, match] of matchEntries){
+        const owner = match.owner;
+        const ownerInitial = owner.username ? owner.username[0].toUpperCase() : '?';
+        const div = document.createElement('div');
+        div.classList.add('matchItem');
+
+        const leftDiv = document.createElement('div');
+        leftDiv.classList.add('matchPlayer');
+        const avatar = document.createElement('div');
+        avatar.classList.add('avatar-circle');
+        avatar.textContent = ownerInitial;
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = owner.username;
+        leftDiv.appendChild(avatar);
+        leftDiv.appendChild(nameSpan);
+
+        const joinBtn = document.createElement('button');
+        joinBtn.textContent = 'Join';
+        joinBtn.onclick = () => joinMatch(id);
+
+        div.appendChild(leftDiv);
+        div.appendChild(joinBtn);
+
+        matchListDiv.appendChild(div);
+      }
+    });
+  }
+
+  // --- UI Event Listeners ---
 
   usernameInput.addEventListener('input', () => {
     usernameSubmit.disabled = usernameInput.value.trim().length === 0;
@@ -561,26 +624,28 @@ const firebaseConfig = {
 
   usernameSubmit.addEventListener('click', () => {
     currentUser.username = usernameInput.value.trim();
-    currentUser.id = 'user_' + Math.random().toString(36).substr(2,9);
+    if(!currentUser.username) return;
+    // Create a unique ID for the user (simple random for demo)
+    currentUser.id = 'user_' + Math.random().toString(36).substr(2, 9);
     usernamePrompt.style.display = 'none';
+    profileDisplay.style.display = 'block';
+    profileDisplay.textContent = `Logged in as: ${currentUser.username}`;
     menu.style.display = 'block';
-    matchListDiv.style.display = 'block';
-    canvas.style.display = 'none';
-    leaveMatchBtn.disabled = true;
-    initBoard();
-    drawBoard();
     renderMatchList();
-    updateStatus("Choose a mode and start a game.");
-
-    updateAIDifficultyButtons();
-    toggleAIDifficultyButtons();
   });
 
-  modeSelect.addEventListener('change', () => {
-    gameMode = modeSelect.value;
-    toggleAIDifficultyButtons();
-    resetGame();
+  modeSelect.addEventListener('change', e => {
+    gameMode = e.target.value;
+    aiDifficultyButtons.style.display = gameMode === 'ai' ? 'block' : 'none';
     renderMatchList();
+  });
+
+  aiDifficultyButtons.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      aiDifficultyButtons.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      aiDifficulty = btn.dataset.level;
+    });
   });
 
   createMatchBtn.addEventListener('click', () => {
@@ -593,76 +658,12 @@ const firebaseConfig = {
 
   canvas.addEventListener('click', onCanvasClick);
 
-  function toggleAIDifficultyButtons(){
-    if(gameMode === 'ai'){
-      aiDifficultyButtons.style.display = 'block';
-    } else {
-      aiDifficultyButtons.style.display = 'none';
-    }
-  }
-
-  function updateAIDifficultyButtons(){
-    const buttons = aiDifficultyButtons.querySelectorAll('button');
-    buttons.forEach(btn => {
-      btn.onclick = () => {
-        buttons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        aiDifficulty = btn.getAttribute('data-level');
-      };
-    });
-  }
-
-  // --- Match List ---
-
-  function renderMatchList(){
-    if(gameMode !== 'pvp'){
-      matchListDiv.innerHTML = '';
-      return;
-    }
-    db.ref('matches').orderByChild('createdAt').limitToLast(20).once('value', snapshot => {
-      const matches = snapshot.val() || {};
-      const keys = Object.keys(matches).reverse();
-      if(keys.length === 0){
-        matchListDiv.innerHTML = '<i>No matches available. Create one!</i>';
-        return;
-      }
-      let html = '';
-      keys.forEach(key => {
-        const m = matches[key];
-        if(m.status === 'ended') return;
-
-        const ownerName = m.owner.username || 'Owner';
-        const opponentName = m.opponent ? m.opponent.username : null;
-
-        html += `<div class="matchItem">`;
-        html += `<div class="matchPlayer"><div class="avatar-circle">${ownerName[0].toUpperCase()}</div>${ownerName}</div>`;
-
-        if(m.status === 'waiting'){
-          html += `<button onclick="joinMatch('${key}')">Join</button>`;
-          html += `<div style="color:#ffaa00;">Waiting for opponent</div>`;
-        } else if(m.status === 'playing'){
-          html += `<div style="color:#aaffaa;">Playing with ${opponentName || '...'}</div>`;
-        }
-        html += `</div>`;
-      });
-      matchListDiv.innerHTML = html;
-    });
-  }
-
-  // Expose joinMatch globally for inline onclick
-  window.joinMatch = joinMatch;
-
-  // --- Init ---
-
-  updateAIDifficultyButtons();
+  // --- Initial setup ---
   initBoard();
   drawBoard();
-  updateStatus("Enter username to start.");
 
-  // Periodically refresh match list every 5 seconds for PvP mode
-  setInterval(() => {
-    if(gameMode === 'pvp') renderMatchList();
-  }, 5000);
+  // --- Export joinMatch globally so buttons work ---
+  window.joinMatch = joinMatch;
 
 })();
 </script>
