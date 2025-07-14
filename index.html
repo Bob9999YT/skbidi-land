@@ -163,13 +163,70 @@
     <button data-level="impossible">Impossible</button>
   </div>
   <canvas id="gameCanvas"></canvas>
-  <div id="status">Select options and press Create.</div>
+  <div id="status">6 7 wheres the mangos</div>
   <div id="matchList">
     <h3>Available Matches</h3>
     <div id="matchesContainer">No matches available.</div>
   </div>
   <script>
-    // AI behavior fix
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const matchesContainer = document.getElementById('matchesContainer');
+
+    const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
+    let rows = 6, cols = 7;
+    let board = [];
+    let currentPlayer = PLAYER_RED;
+    let gameState = 'idle';
+    let myPlayer = PLAYER_NONE;
+
+    function initBoard() {
+      board = Array.from({ length: rows }, () => Array(cols).fill(PLAYER_NONE));
+      canvas.width = cols * 70;
+      canvas.height = rows * 70;
+      drawBoard();
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
+                          board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
+          ctx.beginPath();
+          ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+
+    function updateStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function checkWin(player) {
+      const directions = [ [1, 0], [0, 1], [1, 1], [-1, 1] ];
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          if (board[y][x] !== player) continue;
+          for (let [dx, dy] of directions) {
+            let count = 1, nx = x + dx, ny = y + dy;
+            while (nx >= 0 && ny >= 0 && nx < cols && ny < rows && board[ny][nx] === player) {
+              count++;
+              if (count >= 4) return true;
+              nx += dx; ny += dy;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function isBoardFull() {
+      return board.every(row => row.every(cell => cell !== PLAYER_NONE));
+    }
+
     function aiMove() {
       if (gameState !== 'playing' || currentPlayer !== PLAYER_YELLOW) return;
       const availableCols = [];
@@ -182,12 +239,49 @@
         if (board[y][col] === PLAYER_NONE) {
           board[y][col] = PLAYER_YELLOW;
           drawBoard();
+          if (checkWin(PLAYER_YELLOW)) {
+            gameState = 'ended';
+            updateStatus("AI wins!");
+            return;
+          } else if (isBoardFull()) {
+            gameState = 'ended';
+            updateStatus("Draw!");
+            return;
+          }
           currentPlayer = PLAYER_RED;
           updateStatus("Your turn");
-          break;
+          return;
         }
       }
     }
+
+    canvas.addEventListener('click', (e) => {
+      if (gameState !== 'playing' || myPlayer !== currentPlayer) return;
+      const col = Math.floor(e.offsetX / 70);
+      if (col < 0 || col >= cols) return;
+
+      for (let y = rows - 1; y >= 0; y--) {
+        if (board[y][col] === PLAYER_NONE) {
+          board[y][col] = myPlayer;
+          drawBoard();
+
+          if (checkWin(myPlayer)) {
+            gameState = 'ended';
+            updateStatus("You win!");
+            return;
+          } else if (isBoardFull()) {
+            gameState = 'ended';
+            updateStatus("Draw!");
+            return;
+          }
+
+          currentPlayer = PLAYER_YELLOW;
+          updateStatus("AI's turn...");
+          setTimeout(aiMove, 600);
+          break;
+        }
+      }
+    });
   </script>
 </body>
 </html>
