@@ -6,32 +6,26 @@
   <title>Connect Four</title>
   <style>
     * { box-sizing: border-box; }
-    html, body {
-      margin: 0; padding: 0; height: 100%; width: 100%;
-      background-color: #1e1e2f;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #fff;
-    }
     body {
+      margin: 0; padding: 0;
+      background: #1e1e2f;
+      font-family: sans-serif;
+      color: white;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
       min-height: 100vh;
+    }
+    .header, #menu, #matchList, #gameCanvas, #status {
+      display: none;
+      margin-top: 10px;
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      width: 100%;
+      width: 90%;
       max-width: 600px;
-      margin-bottom: 20px;
-    }
-    h1 {
-      font-size: 2rem;
-      color: #ffaa00;
-      margin: 0;
-      text-align: center;
     }
     .user-profile {
       display: flex;
@@ -41,216 +35,234 @@
       padding: 8px 12px;
       border-radius: 8px;
       border: 2px solid #ffaa00;
-      user-select: none;
     }
-    .user-profile .avatar-circle {
-      width: 28px;
-      height: 28px;
+    .avatar-circle {
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
-      background-color: #ffaa00;
-      font-size: 16px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 16px;
+      background: #ffaa00;
+      color: #1e1e2f;
     }
-    .user-profile .avatar-circle img {
+    .avatar-circle img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       border-radius: 50%;
     }
-    .user-profile span {
-      font-weight: 600;
-      color: #ffaa00;
+    #matchList {
+      max-width: 600px;
+      width: 100%;
     }
-    #matchList .playerInfo {
+    #matchesContainer {
+      background: #1f1f2b;
+      border: 1px solid #ffaa00;
+      border-radius: 6px;
+      padding: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .matchItem {
+      background: #2e2e3d;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 5px 0;
+      padding: 6px 10px;
+      border-radius: 5px;
+    }
+    .playerInfo {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
-    }
-    #usernamePromptContainer input, #usernamePromptContainer button {
-      margin: 4px 0;
+      gap: 8px;
     }
   </style>
 </head>
 <body>
-  <div id="usernamePromptContainer">
-    <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
-    <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" />
-    <input id="avatarUrlInput" type="text" placeholder="Avatar Image/GIF URL (optional)"
-           style="margin:10px 0; padding:8px; width:100%; background:#1f1f2b; color:white; border:2px solid #ffaa00; border-radius:6px;" />
-    <button id="usernameSubmit" disabled>Start Playing</button>
+
+<div id="usernamePromptContainer">
+  <h2 style="color:#ffaa00;">Enter Username</h2>
+  <input id="usernameInput" type="text" placeholder="Username" maxlength="16" />
+  <input id="avatarUrlInput" type="text" placeholder="Avatar Image/GIF URL (optional)"
+         style="margin:10px 0; padding:8px; width:100%; background:#1f1f2b; color:white; border:2px solid #ffaa00; border-radius:6px;" />
+  <button id="usernameSubmit" disabled>Start</button>
+</div>
+
+<div class="header">
+  <h1 style="color:#ffaa00;">Connect Four</h1>
+  <div class="user-profile">
+    <div class="avatar-circle" id="userAvatar"></div>
+    <span id="username">Guest</span>
   </div>
+</div>
 
-  <div class="header" style="display:none;">
-    <h1>Connect Four</h1>
-    <div class="user-profile">
-      <div class="avatar-circle" id="userAvatar">G</div>
-      <span id="username">Guest</span>
-    </div>
-  </div>
+<div id="menu">
+  <label>Mode:
+    <select id="mode">
+      <option value="pvp">Player vs Player</option>
+      <option value="ai">Player vs AI</option>
+    </select>
+  </label>
+  <button id="create">Create Game</button>
+  <button id="leave" disabled>Leave Game</button>
+</div>
 
-  <div id="gameUI" style="display:none;">
-    <div class="menu">
-      <select id="rows"></select>
-      <select id="cols"></select>
-      <select id="mode">
-        <option value="pvp">Player vs Player</option>
-        <option value="ai">Player vs AI</option>
-      </select>
-      <button id="create">Create Game</button>
-      <button id="leave" disabled>Leave Game</button>
-    </div>
+<canvas id="gameCanvas" width="490" height="420"></canvas>
+<div id="status"></div>
 
-    <div id="matchList">
-      <h3 style="color:#ffaa00;">Available Matches</h3>
-      <button id="refreshMatchesBtn">Refresh Matches</button>
-      <div id="matchesContainer" style="margin-top:10px;"></div>
-    </div>
+<div id="matchList">
+  <h3 style="color:#ffaa00;">Available Matches</h3>
+  <div id="matchesContainer"></div>
+</div>
 
-    <canvas id="gameCanvas" width="420" height="360" style="margin-top:20px; display:none;"></canvas>
-    <div id="status" style="margin-top:10px;"></div>
-  </div>
+<script>
+let currentUser = { username: null, avatarUrl: null }, currentUserId = null;
+let gameMode = 'pvp', inMatch = false, matches = {}, gameId = null;
 
-  <script>
-    const usernameInput = document.getElementById('usernameInput');
-    const avatarUrlInput = document.getElementById('avatarUrlInput');
-    const usernameSubmit = document.getElementById('usernameSubmit');
-    const usernameSpan = document.getElementById('username');
-    const userAvatarDiv = document.getElementById('userAvatar');
-    const usernamePrompt = document.getElementById('usernamePromptContainer');
-    const gameUI = document.getElementById('gameUI');
-    const header = document.querySelector('.header');
-    const createBtn = document.getElementById('create');
-    const leaveBtn = document.getElementById('leave');
-    const matchList = document.getElementById('matchList');
-    const matchesContainer = document.getElementById('matchesContainer');
-    const refreshMatchesBtn = document.getElementById('refreshMatchesBtn');
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const status = document.getElementById('status');
-    const rowSelect = document.getElementById('rows');
-    const colSelect = document.getElementById('cols');
-    const modeSelect = document.getElementById('mode');
+const usernameInput = document.getElementById('usernameInput');
+const avatarUrlInput = document.getElementById('avatarUrlInput');
+const usernameSubmit = document.getElementById('usernameSubmit');
+const header = document.querySelector('.header');
+const userAvatarDiv = document.getElementById('userAvatar');
+const usernameSpan = document.getElementById('username');
+const menu = document.getElementById('menu');
+const matchList = document.getElementById('matchList');
+const statusText = document.getElementById('status');
+const createBtn = document.getElementById('create');
+const leaveBtn = document.getElementById('leave');
+const modeSelect = document.getElementById('mode');
+const canvas = document.getElementById('gameCanvas');
+const matchesContainer = document.getElementById('matchesContainer');
 
-    let currentUser = { username: '', avatarUrl: '' };
-    let matches = {};
-    let gameId = null;
-    let myTurn = false;
+function getAvatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
+  return colors[Math.abs(hash) % colors.length];
+}
 
-    function getAvatarColor(name) {
-      let hash = 0;
-      for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
-      return colors[Math.abs(hash) % colors.length];
+usernameInput.addEventListener('input', () => {
+  usernameSubmit.disabled = usernameInput.value.trim().length < 2;
+});
+
+usernameSubmit.onclick = () => {
+  currentUser.username = usernameInput.value.trim();
+  currentUser.avatarUrl = avatarUrlInput.value.trim();
+  currentUserId = 'user_' + Math.random().toString(36).slice(2, 10);
+  usernameSpan.textContent = currentUser.username;
+  userAvatarDiv.innerHTML = '';
+  if (currentUser.avatarUrl && currentUser.avatarUrl.startsWith('http')) {
+    const img = document.createElement('img');
+    img.src = currentUser.avatarUrl;
+    userAvatarDiv.appendChild(img);
+  } else {
+    userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
+    userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
+  }
+  document.getElementById('usernamePromptContainer').style.display = 'none';
+  header.style.display = 'flex';
+  menu.style.display = 'block';
+  matchList.style.display = 'block';
+  statusText.style.display = 'block';
+  renderMatches();
+};
+
+function renderMatches() {
+  if (!currentUserId || inMatch || gameMode === 'ai') {
+    matchList.style.display = 'none';
+    return;
+  }
+  matchesContainer.innerHTML = '';
+  const exampleMatches = Object.values(matches).filter(m => m.creatorId !== currentUserId);
+  if (exampleMatches.length === 0) {
+    matchesContainer.innerHTML = '<div style="color:#888; text-align:center;">No matches available.</div>';
+    return;
+  }
+  for (const match of exampleMatches) {
+    const div = document.createElement('div');
+    div.className = 'matchItem';
+    const playerInfo = document.createElement('div');
+    playerInfo.className = 'playerInfo';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar-circle';
+    if (match.avatarUrl && match.avatarUrl.startsWith('http')) {
+      const img = document.createElement('img');
+      img.src = match.avatarUrl;
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = match.creatorName.charAt(0).toUpperCase();
+      avatar.style.backgroundColor = getAvatarColor(match.creatorName);
     }
 
-    function setUserProfile() {
-      usernameSpan.textContent = currentUser.username;
-      userAvatarDiv.innerHTML = '';
-      if (currentUser.avatarUrl) {
-        const img = document.createElement('img');
-        img.src = currentUser.avatarUrl;
-        userAvatarDiv.appendChild(img);
-      } else {
-        userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
-        userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
-      }
-    }
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = match.creatorName;
+    playerInfo.appendChild(avatar);
+    playerInfo.appendChild(nameSpan);
 
-    function renderMatchList() {
-      matchesContainer.innerHTML = '';
-      Object.keys(matches).forEach(id => {
-        const match = matches[id];
-        if (match.creator === currentUser.username) return;
-        const div = document.createElement('div');
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar-circle';
-        avatar.textContent = match.creator.charAt(0).toUpperCase();
-        avatar.style.backgroundColor = getAvatarColor(match.creator);
-        avatar.style.width = '24px';
-        avatar.style.height = '24px';
-        avatar.style.fontSize = '14px';
-        const span = document.createElement('span');
-        span.textContent = match.creator;
-        const btn = document.createElement('button');
-        btn.textContent = 'Join';
-        btn.onclick = () => joinMatch(id);
-        const info = document.createElement('div');
-        info.className = 'playerInfo';
-        info.appendChild(avatar);
-        info.appendChild(span);
-        div.appendChild(info);
-        div.appendChild(btn);
-        matchesContainer.appendChild(div);
-      });
-    }
-
-    function joinMatch(id) {
-      const match = matches[id];
-      if (!match) return;
-      gameId = id;
-      myTurn = false;
-      matches[gameId].opponent = currentUser.username;
-      renderMatchList();
-      updateStatus(`${match.creator}'s turn`, match.creator);
-      canvas.style.display = 'block';
-    }
-
-    function updateStatus(text, username) {
-      status.innerHTML = `<div class="user-profile" style="display:inline-flex;transform:scale(0.85);"><div class="avatar-circle">${username.charAt(0).toUpperCase()}</div><span>${text}</span></div>`;
-    }
-
-    usernameInput.addEventListener('input', () => {
-      usernameSubmit.disabled = usernameInput.value.trim().length < 2;
-    });
-
-    usernameSubmit.onclick = () => {
-      currentUser.username = usernameInput.value.trim();
-      currentUser.avatarUrl = avatarUrlInput.value.trim();
-      usernamePrompt.style.display = 'none';
-      header.style.display = 'flex';
-      gameUI.style.display = 'block';
-      setUserProfile();
-      renderMatchList();
+    const joinBtn = document.createElement('button');
+    joinBtn.textContent = 'Join';
+    joinBtn.onclick = () => {
+      joinMatch(match.id);
     };
 
-    createBtn.onclick = () => {
-      gameId = 'match_' + Math.random().toString(36).substr(2, 9);
-      matches[gameId] = {
-        creator: currentUser.username,
-        avatar: currentUser.avatarUrl
-      };
-      myTurn = true;
-      renderMatchList();
-      updateStatus(`${currentUser.username}'s turn`, currentUser.username);
-      canvas.style.display = 'block';
+    div.appendChild(playerInfo);
+    div.appendChild(joinBtn);
+    matchesContainer.appendChild(div);
+  }
+}
+
+function createMatch() {
+  if (inMatch) return;
+  gameMode = modeSelect.value;
+  inMatch = true;
+  gameId = 'match_' + Math.random().toString(36).slice(2, 9);
+  if (gameMode === 'pvp') {
+    matches[gameId] = {
+      id: gameId,
+      creatorId: currentUserId,
+      creatorName: currentUser.username,
+      avatarUrl: currentUser.avatarUrl
     };
+  }
+  matchList.style.display = 'none';
+  statusText.textContent = gameMode === 'ai' ? "Your turn (vs AI)" : "Waiting for opponent to join...";
+  leaveBtn.disabled = false;
+  canvas.style.display = 'block';
+}
 
-    leaveBtn.onclick = () => {
-      if (gameId && matches[gameId]) delete matches[gameId];
-      gameId = null;
-      canvas.style.display = 'none';
-      status.textContent = '';
-      renderMatchList();
-    };
+function joinMatch(id) {
+  const match = matches[id];
+  if (!match || inMatch) return;
+  inMatch = true;
+  statusText.textContent = `${match.creatorName}'s turn`;
+  delete matches[id];
+  matchList.style.display = 'none';
+  canvas.style.display = 'block';
+  leaveBtn.disabled = false;
+}
 
-    refreshMatchesBtn.onclick = renderMatchList;
+function leaveMatch() {
+  inMatch = false;
+  canvas.style.display = 'none';
+  leaveBtn.disabled = true;
+  if (gameMode === 'pvp' && matches[gameId]) {
+    delete matches[gameId];
+  }
+  statusText.textContent = 'Match ended.';
+  renderMatches();
+  matchList.style.display = 'block';
+}
 
-    for (let i = 4; i <= 8; i++) {
-      const rowOpt = document.createElement('option');
-      rowOpt.value = i;
-      rowOpt.textContent = i;
-      rowSelect.appendChild(rowOpt);
-      const colOpt = document.createElement('option');
-      colOpt.value = i + 1;
-      colOpt.textContent = i + 1;
-      colSelect.appendChild(colOpt);
-    }
-  </script>
+createBtn.onclick = () => createMatch();
+leaveBtn.onclick = () => leaveMatch();
+</script>
 </body>
 </html>
