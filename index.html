@@ -125,8 +125,14 @@
       transition: transform 0.15s ease;
       user-select: none;
     }
-    .matchItem button:hover {
+    .matchItem button:hover:not(:disabled) {
       transform: scale(1.1);
+    }
+    .matchItem button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      color: #ccc;
+      transform: none !important;
     }
   </style>
 </head>
@@ -183,6 +189,7 @@
   let aiDifficulty = 'normal';
 
   let matches = {};
+  let myUserId = Math.random().toString(36).substr(2, 8); // Unique id for this player instance
 
   function setupUI() {
     const rowSel = document.getElementById('rows');
@@ -228,7 +235,10 @@
     cols = +document.getElementById('cols').value;
     initBoard();
     gameId = Math.random().toString(36).substr(2, 8);
-    currentGame = { id: gameId, rows, cols, mode: gameMode, difficulty: aiDifficulty, state: 'waiting' };
+    currentGame = { 
+      id: gameId, rows, cols, mode: gameMode, difficulty: aiDifficulty, state: 'waiting', 
+      ownerId: myUserId, players: [myUserId] 
+    };
     myPlayer = PLAYER_RED;
     currentPlayer = PLAYER_RED;
 
@@ -249,11 +259,20 @@
   }
 
   function onJoinGame(id) {
-    if (!matches[id]) {
+    const match = matches[id];
+    if (!match) {
       updateStatus("Match not found.");
       return;
     }
-    currentGame = matches[id];
+    if (match.ownerId === myUserId) {
+      updateStatus("Cannot join your own match.");
+      return;
+    }
+    if (match.players.includes(myUserId)) {
+      updateStatus("Already joined this match.");
+      return;
+    }
+    currentGame = match;
     rows = currentGame.rows;
     cols = currentGame.cols;
     gameId = currentGame.id;
@@ -262,7 +281,9 @@
     initBoard();
     gameState = 'playing';
     updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-    broadcast({ type: 'join', gameId });
+    currentGame.players.push(myUserId);
+    currentGame.state = 'playing';
+    broadcast({ type: 'join', gameId, playerId: myUserId });
     toggleMatchList(false);
     updateUIButtons();
 
@@ -272,9 +293,26 @@
   }
 
   function onLeave() {
-    broadcast({ type: 'leave', gameId });
-    resetGame();
-    toggleMatchList(true);
+    if (!currentGame) return;
+
+    if (currentGame.ownerId === myUserId) {
+      broadcast({ type: 'leave', gameId, ownerLeft: true });
+      deleteMatch(gameId);
+      resetGame();
+      toggleMatchList(true);
+    } else {
+      broadcast({ type: 'leave', gameId, ownerLeft: false, playerId: myUserId });
+      // Inform forfeited and reset current player to waiting state
+      updateStatus("Player forfeited. Waiting for another player...");
+      currentGame.state = 'waiting';
+      currentGame.players = [currentGame.ownerId];
+      gameState = 'waiting';
+      myPlayer = PLAYER_RED;
+      currentPlayer = PLAYER_RED;
+      initBoard();
+      toggleMatchList(true);
+      updateUIButtons();
+    }
   }
 
   function resetGame() {
@@ -344,7 +382,6 @@
     return board.every(row => row.every(cell => cell !== PLAYER_NONE));
   }
 
-  // Simple AI logic: random valid move for easy, placeholder for other difficulties
   function aiMove() {
     if (gameState !== 'playing' || currentPlayer !== (myPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED)) return;
 
@@ -383,7 +420,6 @@
   }
 
   function findBestMove() {
-    // Placeholder AI logic for higher difficulties: random valid move
     const validCols = [];
     for (let c = 0; c < cols; c++) {
       if (board[0][c] === PLAYER_NONE) validCols.push(c);
@@ -424,18 +460,18 @@
   function updateStatus(text, result) {
     statusText.textContent = text;
     if (result === 'win') {
-      statusText.style.color = "#4CAF50"; // green
+      statusText.style.color = "#4CAF50";
     } else if (result === 'lose') {
-      statusText.style.color = "#F44336"; // red
+      statusText.style.color = "#F44336";
     } else if (result === 'draw') {
-      statusText.style.color = "#FF9800"; // orange
+      statusText.style.color = "#FF9800";
     } else {
-      statusText.style.color = "#FFFFFF"; // white default
+      statusText.style.color = "#FFFFFF";
     }
   }
 
   function updateUIButtons() {
-    document.getElementById('leave').disabled = !(gameState === 'playing' || gameState === 'ended');
+    document.getElementById('leave').disabled = !(gameState === 'playing' || gameState === 'waiting' || gameState === 'ended');
     document.getElementById('create').disabled = (gameState === 'playing' || gameState === 'waiting');
   }
 
@@ -464,7 +500,14 @@
         <button>Join</button>
       `;
       const btn = div.querySelector('button');
-      btn.onclick = () => onJoinGame(m.id);
+      if (m.ownerId === myUserId) {
+        btn.disabled = true;
+        btn.textContent = "Your Match";
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Join";
+        btn.onclick = () => onJoinGame(m.id);
+      }
       matchesContainer.appendChild(div);
     });
   }
@@ -473,7 +516,6 @@
     document.getElementById('matchList').style.display = show ? 'block' : 'none';
   }
 
-  // Broadcast wrapper for Discord Embedded Activity SDK
   function broadcast(data) {
     if (typeof DiscordSDK !== "undefined" && DiscordSDK.activity) {
       DiscordSDK.activity.broadcast(data);
@@ -482,20 +524,25 @@
     }
   }
 
-  // Handle incoming events from Discord
   function handleEvent(data) {
     switch(data.type) {
       case 'create':
         addMatch(data.game);
         break;
       case 'join':
-        if (data.gameId === gameId && data.player !== myPlayer) {
+        if (matches[data.gameId]) {
+          matches[data.gameId].state = 'playing';
+          if (!matches[data.gameId].players.includes(data.playerId)) {
+            matches[data.gameId].players.push(data.playerId);
+          }
+        }
+        if (data.gameId === gameId && data.playerId !== myUserId) {
           gameState = 'playing';
           updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
           toggleMatchList(false);
           updateUIButtons();
         }
-        deleteMatch(data.gameId);
+        renderMatchList();
         break;
       case 'move':
         if (data.gameId === gameId && data.player !== myPlayer) {
@@ -525,10 +572,27 @@
         }
         break;
       case 'leave':
-        deleteMatch(data.gameId);
-        if (gameId === data.gameId) {
-          resetGame();
-          toggleMatchList(true);
+        if (data.ownerLeft) {
+          deleteMatch(data.gameId);
+          if (gameId === data.gameId) {
+            resetGame();
+            toggleMatchList(true);
+          }
+        } else {
+          if (matches[data.gameId]) {
+            matches[data.gameId].state = 'waiting';
+            matches[data.gameId].players = [matches[data.gameId].ownerId];
+          }
+          if (gameId === data.gameId) {
+            updateStatus("Player forfeited. Waiting for another player...");
+            gameState = 'waiting';
+            myPlayer = PLAYER_RED;
+            currentPlayer = PLAYER_RED;
+            initBoard();
+            toggleMatchList(true);
+            updateUIButtons();
+          }
+          renderMatchList();
         }
         break;
     }
