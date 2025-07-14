@@ -128,7 +128,7 @@
 </div>
 
 <div id="status"></div>
-<div id="matchList"></div>
+<div id="matchList" style="display:none;"></div>
 
 <canvas id="canvas" width="420" height="360" style="display:none;"></canvas>
 
@@ -138,7 +138,7 @@
 
 <script>
 (() => {
-  // --- Your Firebase Config ---
+  // --- Firebase Config ---
   const firebaseConfig = {
     apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
     authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
@@ -287,6 +287,12 @@
     leaveMatchBtn.disabled = true;
     canvas.style.display = 'none';
     updateStatus('');
+    // Hide matches list when idle or no username
+    if(!currentUser.id || isInMatch) {
+      matchListDiv.style.display = 'none';
+    } else {
+      matchListDiv.style.display = 'block';
+    }
   }
 
   function createMatch(){
@@ -298,7 +304,6 @@
     isInMatch = true;
     leaveMatchBtn.disabled = false;
     myPlayer = PLAYER_RED;
-
     if(gameMode === 'pvp'){
       const newMatchRef = db.ref('matches').push();
       gameId = newMatchRef.key;
@@ -312,14 +317,14 @@
         createdAt: Date.now(),
       };
       newMatchRef.set(matchData);
-
       updateStatus("Waiting for opponent to join...");
       listenToMatch(gameId);
-      renderMatchList();
+      matchListDiv.style.display = 'none'; // hide matches while in match
     } else if(gameMode === 'ai'){
       gameId = null;
       canvas.style.display = 'block';
       updateStatus("Your turn!");
+      matchListDiv.style.display = 'none'; // no matches for AI
     }
   }
 
@@ -346,7 +351,7 @@
 
       updateStatus(`You joined! Your turn!`);
       canvas.style.display = 'block';
-
+      matchListDiv.style.display = 'none'; // hide matches while in match
       listenToMatch(gameId);
     });
   }
@@ -444,6 +449,7 @@
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
+      matchListDiv.style.display = 'block';
       return;
     }
 
@@ -457,6 +463,7 @@
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
+      matchListDiv.style.display = 'block';
       return;
     }
 
@@ -473,7 +480,7 @@
     }
   }
 
-  // --- AI logic for different difficulties ---
+  // --- AI logic ---
 
   function getAvailableRowInBoard(b, col){
     for(let r=ROWS-1; r>=0; r--){
@@ -490,19 +497,16 @@
     return valid;
   }
 
-  // Simple random AI
   function easyAI(){
     const valid = getValidColsInBoard(board);
     if(valid.length === 0) return -1;
     return valid[Math.floor(Math.random()*valid.length)];
   }
 
-  // Basic block and win AI
   function normalAI(){
     for(let c=0; c<COLS; c++){
       let r = getAvailableRowInBoard(board, c);
       if(r === -1) continue;
-      // Try winning move
       const tempBoard = JSON.parse(JSON.stringify(board));
       tempBoard[r][c] = PLAYER_YELLOW;
       if(checkWinner(PLAYER_YELLOW, tempBoard)) return c;
@@ -510,7 +514,6 @@
     for(let c=0; c<COLS; c++){
       let r = getAvailableRowInBoard(board, c);
       if(r === -1) continue;
-      // Block opponent win
       const tempBoard = JSON.parse(JSON.stringify(board));
       tempBoard[r][c] = PLAYER_RED;
       if(checkWinner(PLAYER_RED, tempBoard)) return c;
@@ -518,7 +521,6 @@
     return easyAI();
   }
 
-  // For demo, harder levels just pick normal AI for now
   function hardAI(){ return normalAI(); }
   function insaneAI(){ return normalAI(); }
   function impossibleAI(){ return normalAI(); }
@@ -549,6 +551,7 @@
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
+      matchListDiv.style.display = 'block';
       return;
     }
 
@@ -558,6 +561,7 @@
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
+      matchListDiv.style.display = 'block';
       return;
     }
 
@@ -568,6 +572,11 @@
   // --- Match List Rendering and Refresh ---
 
   function renderMatchList(){
+    if(!currentUser.id || isInMatch){
+      matchListDiv.style.display = 'none';
+      return;
+    }
+    matchListDiv.style.display = 'block';
     matchListDiv.innerHTML = '';
 
     const waitingText = document.createElement('div');
@@ -583,16 +592,27 @@
       }
       const matches = snapshot.val();
       let foundAny = false;
+      const seenMatchIds = new Set();
+
       for(const key in matches){
+        if(seenMatchIds.has(key)) continue;
+        seenMatchIds.add(key);
         const match = matches[key];
         if(match.status === 'waiting'){
           foundAny = true;
+          if(currentUser.id === match.owner.id) continue; // don't show own matches
 
           const matchDiv = document.createElement('div');
           matchDiv.classList.add('matchItem');
 
           const playersDiv = document.createElement('div');
           playersDiv.classList.add('matchPlayer');
+
+          // Avatar initials
+          const avatarCircle = document.createElement('div');
+          avatarCircle.classList.add('avatar-circle');
+          avatarCircle.textContent = match.owner.username ? match.owner.username.charAt(0).toUpperCase() : 'O';
+          playersDiv.appendChild(avatarCircle);
 
           const ownerName = document.createElement('span');
           ownerName.textContent = match.owner.username || 'Owner';
@@ -629,11 +649,13 @@
   });
 
   usernameSubmit.addEventListener('click', () => {
-    currentUser.username = usernameInput.value.trim();
-    if(!currentUser.username) return;
+    const usernameVal = usernameInput.value.trim();
+    if(!usernameVal) return;
+    currentUser.username = usernameVal;
     currentUser.id = 'user_' + Math.floor(Math.random()*10000000);
     usernamePrompt.style.display = 'none';
     menu.style.display = 'block';
+    resetGame();
     renderMatchList();
   });
 
@@ -646,7 +668,10 @@
     } else {
       aiDifficultyButtons.style.display = 'none';
       createMatchBtn.textContent = 'Create Match';
-      matchListDiv.style.display = 'block';
+      if(!isInMatch && currentUser.id) {
+        matchListDiv.style.display = 'block';
+        renderMatchList();
+      }
     }
     resetGame();
   });
@@ -661,7 +686,10 @@
 
   createMatchBtn.addEventListener('click', () => {
     createMatch();
-    canvas.style.display = 'block';
+    if(gameMode === 'ai'){
+      canvas.style.display = 'block';
+      matchListDiv.style.display = 'none';
+    }
   });
 
   leaveMatchBtn.addEventListener('click', () => {
@@ -676,7 +704,6 @@
 
   // --- Init ---
   resetGame();
-  renderMatchList();
 
 })();
 </script>
