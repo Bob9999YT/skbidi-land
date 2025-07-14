@@ -21,12 +21,45 @@
     padding: 20px;
     min-height: 100vh;
   }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+  }
+
   h1 {
     font-size: 2rem;
     color: #ffaa00;
-    margin-bottom: 1rem;
+    margin: 0;
     text-align: center;
   }
+
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #29293d;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 2px solid #ffaa00;
+  }
+
+  .user-profile img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .user-profile span {
+    font-weight: 600;
+    color: #ffaa00;
+  }
+
   .menu {
     display: flex;
     flex-wrap: wrap;
@@ -93,6 +126,9 @@
     border: 1.5px solid #ffaa00;
     background: #29293d;
     box-shadow: 0 2px 0 #ffaa00;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
   #aiDifficultyButtons button.active {
     background: #ffaa00;
@@ -180,10 +216,21 @@
     background-color: #ffaa00;
     border-radius: 4px;
   }
+  .no-matches {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+  }
 </style>
 </head>
 <body>
-  <h1>Connect Four</h1>
+  <div class="header">
+    <h1>Connect Four</h1>
+    <div class="user-profile">
+      <img id="userAvatar" src="https://via.placeholder.com/32" alt="User Avatar">
+      <span id="username">Guest</span>
+    </div>
+  </div>
 
   <div class="menu">
     <label for="rows">Rows:</label>
@@ -234,6 +281,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const aiDifficultyDiv = document.getElementById('aiDifficultyButtons');
   const aiButtons = aiDifficultyDiv.querySelectorAll('button');
 
+  // Discord Activity setup
+  let isDiscordActivity = false;
+  let isConnected = false;
+  let currentUser = {
+    id: 'local_user',
+    username: 'Guest',
+    avatar: 'https://via.placeholder.com/32'
+  };
+
   let rows = 6, cols = 7;
   let board = [];
   let currentPlayer = PLAYER_RED;
@@ -244,89 +300,57 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentGame = null;
   let aiDifficulty = 'normal';
   let matches = {}; // id -> game object
-  let discordUser = null;
 
-  // Initialize Discord SDK
-  async function initDiscord() {
-    if (typeof DiscordSDK !== "undefined") {
-      try {
-        await DiscordSDK.ready();
-        
-        // Get current user info
-        const auth = await DiscordSDK.commands.authenticate({
-          access_token: await DiscordSDK.commands.authorize({
-            client_id: DiscordSDK.clientId,
-            response_type: "code",
-            state: "",
-            prompt: "none",
-            scope: ["identify", "guilds"]
-          })
+  function initDiscord() {
+    if (typeof DiscordSDK !== 'undefined') {
+      isDiscordActivity = true;
+      DiscordSDK.ready().then(() => {
+        isConnected = true;
+        DiscordSDK.commands.getUser().then(user => {
+          currentUser = {
+            id: user.id,
+            username: user.username,
+            avatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 'https://via.placeholder.com/32'
+          };
+          updateUserProfile();
         });
-        
-        discordUser = auth.user;
-        console.log("Discord user:", discordUser);
-        
-        // Set up activity participants sync
-        DiscordSDK.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', (data) => {
-          console.log("Participants updated:", data);
-          // Sync matches with participants
-          syncMatchesWithParticipants(data.participants);
-        });
-        
-        renderMatchList();
-      } catch (error) {
-        console.error("Discord initialization failed:", error);
-        // Fallback to local user
-        discordUser = {
-          id: 'local_' + Math.random().toString(36).substr(2, 9),
-          username: 'Local Player',
-          avatar: null
-        };
-      }
-    } else {
-      // Fallback for non-Discord environment
-      discordUser = {
-        id: 'local_' + Math.random().toString(36).substr(2, 9),
-        username: 'Local Player',
-        avatar: null
-      };
+      });
     }
   }
 
-  function syncMatchesWithParticipants(participants) {
-    // Update matches based on active participants
-    // This helps sync matches across different users in the activity
-    const participantIds = participants.map(p => p.id);
-    
-    // Remove matches from users who are no longer in the activity
-    Object.keys(matches).forEach(matchId => {
-      if (!participantIds.includes(matches[matchId].ownerId)) {
-        delete matches[matchId];
-      }
-    });
-    
-    renderMatchList();
+  function updateUserProfile() {
+    document.getElementById('username').textContent = currentUser.username;
+    document.getElementById('userAvatar').src = currentUser.avatar;
+  }
+
+  function broadcast(data) {
+    if (isDiscordActivity && isConnected) {
+      DiscordSDK.commands.sendActivityMessage(data);
+    }
+  }
+
+  function toggleMatchList(show) {
+    document.getElementById('matchList').style.display = show ? 'block' : 'none';
   }
 
   function setupUI() {
-    // Populate dropdown options
-    for(let i=4; i<=10; i++) {
-      const rowOption = new Option(i, i);
-      const colOption = new Option(i, i);
-      rowSel.add(rowOption);
-      colSel.add(colOption);
+    initDiscord();
+    updateUserProfile();
+
+    for (let i = 4; i <= 10; i++) {
+      rowSel.add(new Option(i, i));
+      colSel.add(new Option(i, i));
     }
     rowSel.value = rows;
     colSel.value = cols;
 
-    // Event listeners
-    rowSel.addEventListener('change', () => { 
-      rows = parseInt(rowSel.value); 
-      updateCanvasSize(); 
+    rowSel.addEventListener('change', () => {
+      rows = parseInt(rowSel.value);
+      updateCanvasSize();
     });
-    colSel.addEventListener('change', () => { 
-      cols = parseInt(colSel.value); 
-      updateCanvasSize(); 
+    colSel.addEventListener('change', () => {
+      cols = parseInt(colSel.value);
+      updateCanvasSize();
     });
     modeSel.addEventListener('change', () => {
       gameMode = modeSel.value;
@@ -347,8 +371,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     toggleAIDifficulty(false);
+    toggleMatchList(true);
     updateUIButtons();
     renderMatchList();
+    initBoard();
   }
 
   function toggleAIDifficulty(show) {
@@ -358,21 +384,40 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateCanvasSize() {
     canvas.width = cols * 70;
     canvas.height = rows * 70;
-    if (board.length > 0) {
-      drawBoard();
-    }
+    drawBoard();
   }
 
   function setStatus(text) {
     statusText.textContent = text;
   }
 
+  function refreshMatches() {
+    if (isDiscordActivity && isConnected) {
+      broadcast({type: 'request_matches', userId: currentUser.id});
+    }
+
+    const now = Date.now();
+    for (const id in matches) {
+      if (now - matches[id].created > 300000) {
+        delete matches[id];
+      }
+    }
+
+    renderMatchList();
+  }
+
+  function addMatch(game) {
+    game.created = Date.now();
+    game.ownerInfo = currentUser;
+    matches[game.id] = game;
+    renderMatchList();
+  }
+
   function updateUIButtons() {
-    const isGameActive = gameState === 'playing' || gameState === 'waiting' || gameState === 'ended';
+    const isGameActive = ['playing', 'waiting', 'ended'].includes(gameState);
     leaveBtn.disabled = !isGameActive;
     createBtn.disabled = gameState === 'playing' || gameState === 'waiting';
-    
-    // Disable controls during active game
+
     rowSel.disabled = isGameActive;
     colSel.disabled = isGameActive;
     modeSel.disabled = isGameActive;
@@ -385,18 +430,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function drawBoard() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for(let y=0; y<rows; y++){
-      for(let x=0; x<cols; x++){
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
         let color = "white";
         if (board[y][x] === PLAYER_RED) color = "#f44336";
         else if (board[y][x] === PLAYER_YELLOW) color = "#fdd835";
-        
+
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(35 + x*70, 35 + y*70, 30, 0, 2*Math.PI);
+        ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
         ctx.fill();
-        
-        // Add border to pieces
+
         if (board[y][x] !== PLAYER_NONE) {
           ctx.strokeStyle = "#333";
           ctx.lineWidth = 2;
@@ -412,7 +456,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gameMode = modeSel.value;
 
     initBoard();
-    gameId = 'game_' + Math.random().toString(36).substr(2,8);
+    gameId = 'game_' + Math.random().toString(36).substr(2, 8);
 
     currentGame = {
       id: gameId,
@@ -421,17 +465,15 @@ document.addEventListener("DOMContentLoaded", () => {
       mode: gameMode,
       difficulty: aiDifficulty,
       state: gameMode === 'ai' ? 'playing' : 'waiting',
-      ownerId: discordUser ? discordUser.id : 'local_player',
-      ownerName: discordUser ? discordUser.username : 'Local Player',
-      ownerAvatar: discordUser ? discordUser.avatar : null,
-      players: [discordUser ? discordUser.id : 'local_player'],
+      ownerId: currentUser.id,
+      players: [currentUser.id],
     };
 
     myPlayer = PLAYER_RED;
     currentPlayer = PLAYER_RED;
     gameState = currentGame.state;
 
-    if(gameMode === 'ai'){
+    if (gameMode === 'ai') {
       setStatus("Your turn! Click a column to drop your piece.");
       toggleMatchList(false);
     } else {
@@ -439,9 +481,9 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleMatchList(true);
       addMatch(currentGame);
     }
-    
+
     updateUIButtons();
-    broadcast({ type: 'create', game: currentGame });
+    broadcast({type: 'create', game: currentGame});
   }
 
   function onJoinGame(id) {
@@ -465,13 +507,13 @@ document.addEventListener("DOMContentLoaded", () => {
     toggleMatchList(false);
     updateUIButtons();
 
-    broadcast({ type: 'join', gameId });
+    broadcast({type: 'join', gameId});
   }
 
   function onLeave() {
-    if(!currentGame) return;
-    
-    broadcast({ type: 'leave', gameId, ownerLeft: true });
+    if (!currentGame) return;
+
+    broadcast({type: 'leave', gameId, ownerLeft: true});
     delete matches[gameId];
     resetGame();
     toggleMatchList(true);
@@ -495,38 +537,46 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function checkWin() {
-    // Horizontal check
-    for(let y=0; y<rows; y++){
-      for(let x=0; x<=cols-4; x++){
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x <= cols - 4; x++) {
         const val = board[y][x];
-        if(val !== PLAYER_NONE && val === board[y][x+1] && val === board[y][x+2] && val === board[y][x+3]){
+        if (val !== PLAYER_NONE &&
+            val === board[y][x + 1] &&
+            val === board[y][x + 2] &&
+            val === board[y][x + 3]) {
           return val;
         }
       }
     }
-    // Vertical check
-    for(let x=0; x<cols; x++){
-      for(let y=0; y<=rows-4; y++){
+    for (let x = 0; x < cols; x++) {
+      for (let y = 0; y <= rows - 4; y++) {
         const val = board[y][x];
-        if(val !== PLAYER_NONE && val === board[y+1][x] && val === board[y+2][x] && val === board[y+3][x]){
+        if (val !== PLAYER_NONE &&
+            val === board[y + 1][x] &&
+            val === board[y + 2][x] &&
+            val === board[y + 3][x]) {
           return val;
         }
       }
     }
-    // Diagonal down-right
-    for(let y=0; y<=rows-4; y++){
-      for(let x=0; x<=cols-4; x++){
+    for (let y = 0; y <= rows - 4; y++) {
+      for (let x = 0; x <= cols - 4; x++) {
         const val = board[y][x];
-        if(val !== PLAYER_NONE && val === board[y+1][x+1] && val === board[y+2][x+2] && val === board[y+3][x+3]){
+        if (val !== PLAYER_NONE &&
+            val === board[y + 1][x + 1] &&
+            val === board[y + 2][x + 2] &&
+            val === board[y + 3][x + 3]) {
           return val;
         }
       }
     }
-    // Diagonal up-right
-    for(let y=3; y<rows; y++){
-      for(let x=0; x<=cols-4; x++){
+    for (let y = 3; y < rows; y++) {
+      for (let x = 0; x <= cols - 4; x++) {
         const val = board[y][x];
-        if(val !== PLAYER_NONE && val === board[y-1][x+1] && val === board[y-2][x+2] && val === board[y-3][x+3]){
+        if (val !== PLAYER_NONE &&
+            val === board[y - 1][x + 1] &&
+            val === board[y - 2][x + 2] &&
+            val === board[y - 3][x + 3]) {
           return val;
         }
       }
@@ -534,572 +584,129 @@ document.addEventListener("DOMContentLoaded", () => {
     return PLAYER_NONE;
   }
 
-  function onClick(e) {
-    if(gameState !== 'playing') return;
-    if(myPlayer !== currentPlayer) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const xClick = e.clientX - rect.left;
-    const col = Math.floor(xClick / 70);
-    if(col < 0 || col >= cols) return;
-
-    // Check if column is full
-    if(board[0][col] !== PLAYER_NONE) return;
-
-    // Find the lowest available row
-    for(let y=rows-1; y>=0; y--){
-      if(board[y][col] === PLAYER_NONE){
-        board[y][col] = myPlayer;
-        drawBoard();
-        broadcast({type:'move', col, row:y, player: myPlayer, gameId});
-
-        const winner = checkWin();
-        if(winner !== PLAYER_NONE){
-          gameState = 'ended';
-          setStatus(winner === myPlayer ? "You win!" : "You lose!");
-          broadcast({type:'end', winner, gameId});
-        } else if(isBoardFull()){
-          gameState = 'ended';
-          setStatus("It's a draw!");
-          broadcast({type:'end', winner: PLAYER_NONE, gameId});
-        } else {
-          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          if(gameMode === 'ai' && currentPlayer !== myPlayer){
-            setTimeout(aiMove, 500);
-          }
-        }
-        updateUIButtons();
-        break;
+  function dropPiece(col, player) {
+    for (let row = rows - 1; row >= 0; row--) {
+      if (board[row][col] === PLAYER_NONE) {
+        board[row][col] = player;
+        return row;
       }
     }
+    return -1; // column full
+  }
+
+  function onClick(event) {
+    if (gameState !== 'playing') return;
+    if (currentPlayer !== myPlayer) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const col = Math.floor(x / 70);
+    if (col < 0 || col >= cols) return;
+
+    if (!canPlay(col)) {
+      setStatus("Column is full!");
+      return;
+    }
+
+    playTurn(col, myPlayer);
+  }
+
+  function canPlay(col) {
+    return board[0][col] === PLAYER_NONE;
+  }
+
+  function playTurn(col, player) {
+    const row = dropPiece(col, player);
+    if (row === -1) return false;
+    drawBoard();
+
+    const winner = checkWin();
+    if (winner !== PLAYER_NONE) {
+      setStatus(winner === myPlayer ? "You win!" : "You lose!");
+      gameState = 'ended';
+      updateUIButtons();
+      return true;
+    }
+
+    if (isBoardFull()) {
+      setStatus("It's a draw!");
+      gameState = 'ended';
+      updateUIButtons();
+      return true;
+    }
+
+    currentPlayer = player === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+
+    if (gameMode === 'ai' && currentPlayer !== myPlayer && gameState === 'playing') {
+      setStatus("AI's turn...");
+      setTimeout(() => {
+        aiMove();
+      }, 800);
+    } else {
+      setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
+    }
+
+    return true;
   }
 
   function aiMove() {
-  if(gameState !== 'playing') return;
-  if(currentPlayer !== PLAYER_YELLOW) return; // AI plays yellow
-
-  let chosenCol;
-  
-  switch(aiDifficulty) {
-    case 'easy':
-      chosenCol = getRandomMove();
-      break;
-    case 'normal':
-      chosenCol = getNormalMove();
-      break;
-    case 'hard':
-      chosenCol = getHardMove();
-      break;
-    case 'insane':
-      chosenCol = getInsaneMove();
-      break;
-    case 'impossible':
-      chosenCol = getImpossibleMove();
-      break;
-    default:
-      chosenCol = getRandomMove();
-  }
-  
-  if (chosenCol === -1) return;
-  
-  // Place the piece
-  for(let y=rows-1; y>=0; y--){
-    if(board[y][chosenCol] === PLAYER_NONE){
-      board[y][chosenCol] = PLAYER_YELLOW;
-      drawBoard();
-      broadcast({type:'move', col:chosenCol, row:y, player: PLAYER_YELLOW, gameId});
-
-      const winner = checkWin();
-      if(winner !== PLAYER_NONE){
-        gameState = 'ended';
-        setStatus(winner === PLAYER_YELLOW ? "AI wins!" : "You win!");
-        broadcast({type:'end', winner, gameId});
-      } else if(isBoardFull()){
-        gameState = 'ended';
-        setStatus("It's a draw!");
-        broadcast({type:'end', winner: PLAYER_NONE, gameId});
-      } else {
-        currentPlayer = PLAYER_RED;
-        setStatus("Your turn!");
-      }
-      updateUIButtons();
-      break;
-    }
-  }
-}
-
-// AI Helper Functions (add these new functions)
-function getRandomMove() {
-  const possibleCols = [];
-  for(let c=0; c<cols; c++){
-    if(board[0][c] === PLAYER_NONE){
-      possibleCols.push(c);
-    }
-  }
-  return possibleCols.length > 0 ? possibleCols[Math.floor(Math.random() * possibleCols.length)] : -1;
-}
-
-function getNormalMove() {
-  // Check for winning move first
-  for(let c=0; c<cols; c++){
-    if(board[0][c] === PLAYER_NONE){
-      const tempBoard = board.map(row => [...row]);
-      for(let y=rows-1; y>=0; y--){
-        if(tempBoard[y][c] === PLAYER_NONE){
-          tempBoard[y][c] = PLAYER_YELLOW;
-          if(checkWinOnBoard(tempBoard) === PLAYER_YELLOW){
-            return c;
-          }
-          break;
-        }
-      }
-    }
-  }
-  
-  // Check for blocking move
-  for(let c=0; c<cols; c++){
-    if(board[0][c] === PLAYER_NONE){
-      const tempBoard = board.map(row => [...row]);
-      for(let y=rows-1; y>=0; y--){
-        if(tempBoard[y][c] === PLAYER_NONE){
-          tempBoard[y][c] = PLAYER_RED;
-          if(checkWinOnBoard(tempBoard) === PLAYER_RED){
-            return c;
-          }
-          break;
-        }
-      }
-    }
-  }
-  
-  // Otherwise random
-  return getRandomMove();
-}
-
-function getHardMove() {
-  // Use minimax with depth 4
-  const move = minimax(board, 4, -Infinity, Infinity, true);
-  return move.col;
-}
-
-function getInsaneMove() {
-  // Use minimax with depth 6
-  const move = minimax(board, 6, -Infinity, Infinity, true);
-  return move.col;
-}
-
-function getImpossibleMove() {
-  // Use minimax with depth 8 and enhanced evaluation
-  const move = minimax(board, 8, -Infinity, Infinity, true);
-  return move.col;
-}
-
-function minimax(board, depth, alpha, beta, isMaximizing) {
-  const winner = checkWinOnBoard(board);
-  
-  if (winner === PLAYER_YELLOW) return { score: 100000 };
-  if (winner === PLAYER_RED) return { score: -100000 };
-  if (depth === 0 || isBoardFullOnBoard(board)) return { score: evaluateBoard(board) };
-  
-  if (isMaximizing) {
-    let maxEval = -Infinity;
-    let bestCol = -1;
-    
+    // Simple AI: pick random available column
+    const availableCols = [];
     for (let c = 0; c < cols; c++) {
-      if (board[0][c] === PLAYER_NONE) {
-        const newBoard = makeMove(board, c, PLAYER_YELLOW);
-        const eval = minimax(newBoard, depth - 1, alpha, beta, false);
-        
-        if (eval.score > maxEval) {
-          maxEval = eval.score;
-          bestCol = c;
-        }
-        
-        alpha = Math.max(alpha, eval.score);
-        if (beta <= alpha) break;
-      }
+      if (canPlay(c)) availableCols.push(c);
     }
-    
-    return { score: maxEval, col: bestCol };
-  } else {
-    let minEval = Infinity;
-    let bestCol = -1;
-    
-    for (let c = 0; c < cols; c++) {
-      if (board[0][c] === PLAYER_NONE) {
-        const newBoard = makeMove(board, c, PLAYER_RED);
-        const eval = minimax(newBoard, depth - 1, alpha, beta, true);
-        
-        if (eval.score < minEval) {
-          minEval = eval.score;
-          bestCol = c;
-        }
-        
-        beta = Math.min(beta, eval.score);
-        if (beta <= alpha) break;
-      }
-    }
-    
-    return { score: minEval, col: bestCol };
-  }
-}
+    if (availableCols.length === 0) return;
 
-function makeMove(board, col, player) {
-  const newBoard = board.map(row => [...row]);
-  for (let y = rows - 1; y >= 0; y--) {
-    if (newBoard[y][col] === PLAYER_NONE) {
-      newBoard[y][col] = player;
-      break;
-    }
-  }
-  return newBoard;
-}
-
-function evaluateBoard(board) {
-  let score = 0;
-  
-  // Center column preference
-  const centerCol = Math.floor(cols / 2);
-  for (let y = 0; y < rows; y++) {
-    if (board[y][centerCol] === PLAYER_YELLOW) score += 3;
-    if (board[y][centerCol] === PLAYER_RED) score -= 3;
-  }
-  
-  // Evaluate all possible 4-in-a-row windows
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      // Horizontal
-      if (x <= cols - 4) {
-        score += evaluateWindow([board[y][x], board[y][x+1], board[y][x+2], board[y][x+3]]);
-      }
-      // Vertical
-      if (y <= rows - 4) {
-        score += evaluateWindow([board[y][x], board[y+1][x], board[y+2][x], board[y+3][x]]);
-      }
-      // Diagonal \
-      if (y <= rows - 4 && x <= cols - 4) {
-        score += evaluateWindow([board[y][x], board[y+1][x+1], board[y+2][x+2], board[y+3][x+3]]);
-      }
-      // Diagonal /
-      if (y >= 3 && x <= cols - 4) {
-        score += evaluateWindow([board[y][x], board[y-1][x+1], board[y-2][x+2], board[y-3][x+3]]);
-      }
-    }
-  }
-  
-  return score;
-}
-
-function evaluateWindow(window) {
-  let score = 0;
-  const aiCount = window.filter(cell => cell === PLAYER_YELLOW).length;
-  const humanCount = window.filter(cell => cell === PLAYER_RED).length;
-  const emptyCount = window.filter(cell => cell === PLAYER_NONE).length;
-  
-  if (aiCount === 4) score += 100;
-  else if (aiCount === 3 && emptyCount === 1) score += 10;
-  else if (aiCount === 2 && emptyCount === 2) score += 2;
-  
-  if (humanCount === 4) score -= 100;
-  else if (humanCount === 3 && emptyCount === 1) score -= 80;
-  else if (humanCount === 2 && emptyCount === 2) score -= 2;
-  
-  return score;
-}
-
-function checkWinOnBoard(board) {
-  // Same logic as checkWin() but for any board state
-  for(let y=0; y<rows; y++){
-    for(let x=0; x<=cols-4; x++){
-      const val = board[y][x];
-      if(val !== PLAYER_NONE && val === board[y][x+1] && val === board[y][x+2] && val === board[y][x+3]){
-        return val;
-      }
-    }
-  }
-  for(let x=0; x<cols; x++){
-    for(let y=0; y<=rows-4; y++){
-      const val = board[y][x];
-      if(val !== PLAYER_NONE && val === board[y+1][x] && val === board[y+2][x] && val === board[y+3][x]){
-        return val;
-      }
-    }
-  }
-  for(let y=0; y<=rows-4; y++){
-    for(let x=0; x<=cols-4; x++){
-      const val = board[y][x];
-      if(val !== PLAYER_NONE && val === board[y+1][x+1] && val === board[y+2][x+2] && val === board[y+3][x+3]){
-        return val;
-      }
-    }
-  }
-  for(let y=3; y<rows; y++){
-    for(let x=0; x<=cols-4; x++){
-      const val = board[y][x];
-      if(val !== PLAYER_NONE && val === board[y-1][x+1] && val === board[y-2][x+2] && val === board[y-3][x+3]){
-        return val;
-      }
-    }
-  }
-  return PLAYER_NONE;
-}
-
-function isBoardFullOnBoard(board) {
-  return board.every(row => row.every(cell => cell !== PLAYER_NONE));
-}
-
-  function addMatch(game) {
-    if (game.mode === 'pvp') {
-    matches[game.id] = game;
-    renderMatchList();
+    const chosenCol = availableCols[Math.floor(Math.random() * availableCols.length)];
+    playTurn(chosenCol, currentPlayer);
   }
 
 function renderMatchList() {
   matchesContainer.innerHTML = '';
+  const ids = Object.keys(matches);
 
-  const userId = discordUser ? discordUser.id : 'local_player';
-  
-  // Filter out AI matches AND matches from the current user
-  const visibleMatches = Object.values(matches).filter(m => 
-    m.ownerId !== userId && m.mode !== 'ai'
-  );
+  // Filter out your own matches
+  const filteredIds = ids.filter(id => matches[id].ownerId !== currentUser.id);
 
-  if(visibleMatches.length === 0) {
-    matchesContainer.textContent = "No matches available.";
+  if (filteredIds.length === 0) {
+    matchesContainer.innerHTML = '<div class="no-matches">No matches available.</div>';
     return;
   }
 
-  for(let match of visibleMatches){
+  filteredIds.forEach(id => {
+    const match = matches[id];
+
     const div = document.createElement('div');
     div.className = 'matchItem';
 
     const playerInfo = document.createElement('div');
     playerInfo.className = 'playerInfo';
-    
-    // Add avatar if available
-    if(match.ownerAvatar) {
-      const img = document.createElement('img');
-      img.src = `https://cdn.discordapp.com/avatars/${match.ownerId}/${match.ownerAvatar}.png?size=64`;
-      img.onerror = () => { 
-        img.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(match.ownerId) % 5}.png`; 
-      };
-      playerInfo.appendChild(img);
-    }
 
-    const matchDetails = document.createElement('div');
-    matchDetails.innerHTML = `
-      <div style="font-weight: bold;">${match.ownerName || 'Unknown Player'}</div>
-      <div style="font-size: 0.9em; opacity: 0.8;">${match.rows}×${match.cols} • PvP</div>
-    `;
-    playerInfo.appendChild(matchDetails);
+    const avatar = document.createElement('img');
+    avatar.src = match.ownerInfo?.avatar || 'https://via.placeholder.com/28';
+    avatar.alt = 'Owner Avatar';
+
+    const name = document.createElement('span');
+    name.textContent = match.ownerInfo?.username || 'Unknown';
+
+    playerInfo.appendChild(avatar);
+    playerInfo.appendChild(name);
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Join';
+    btn.addEventListener('click', () => {
+      onJoinGame(id);
+    });
 
     div.appendChild(playerInfo);
-
-    const joinBtn = document.createElement('button');
-    joinBtn.textContent = 'Join';
-    joinBtn.addEventListener('click', () => {
-      onJoinGame(match.id);
-    });
-    div.appendChild(joinBtn);
+    div.appendChild(btn);
 
     matchesContainer.appendChild(div);
-  }
-}
- 
-  function toggleMatchList(show) {
-    document.getElementById('matchList').style.display = show ? 'block' : 'none';
-  }
-
- function setupDiscordListeners() {
-  if (typeof DiscordSDK !== "undefined") {
-    // Listen for activity instance data updates
-    DiscordSDK.subscribe('ACTIVITY_INSTANCE_DATA_UPDATE', (data) => {
-      console.log("Activity instance data updated:", data);
-      if (data.type === 'MATCH_UPDATE' && data.data) {
-        const remoteMatches = data.data.matches;
-        const userId = discordUser ? discordUser.id : 'local_player';
-        
-        // Merge remote matches with local matches
-        Object.keys(remoteMatches).forEach(matchId => {
-          if (remoteMatches[matchId].ownerId !== userId) {
-            matches[matchId] = remoteMatches[matchId];
-          }
-        });
-        
-        renderMatchList();
-      }
-    });
-
-    // Periodic refresh of matches from activity participants
-    setInterval(() => {
-      if (gameState === 'idle' || gameState === 'waiting') {
-        DiscordSDK.commands.getActivityInstanceData()
-          .then(data => {
-            if (data && data.matches) {
-              const remoteMatches = JSON.parse(data.matches);
-              const userId = discordUser ? discordUser.id : 'local_player';
-              
-              Object.keys(remoteMatches).forEach(matchId => {
-                if (remoteMatches[matchId].ownerId !== userId) {
-                  matches[matchId] = remoteMatches[matchId];
-                }
-              });
-              
-              renderMatchList();
-            }
-          })
-          .catch(err => console.log("No activity instance data:", err));
-      }
-    }, 3000); // Refresh every 3 seconds
-  }
+  });
 }
 
- function broadcast(msg) {
-  // For Discord activities, use the instance data system
-  if (typeof DiscordSDK !== "undefined") {
-    try {
-      // Update Discord activity with current game state
-      DiscordSDK.commands.setActivity({
-        activity: {
-          type: 0, // Playing
-          details: `Connect Four ${rows}×${cols}`,
-          state: gameState === 'playing' ? 'In Game' : gameState === 'waiting' ? 'Waiting' : 'Menu',
-          party: {
-            id: gameId || 'lobby',
-            size: [Object.keys(matches).length + 1, 10]
-          },
-          // Store match data in activity instance
-          instance: {
-            matches: JSON.stringify(matches),
-            timestamp: Date.now()
-          }
-        }
-      });
-
-      // Also send as activity message for real-time updates
-      DiscordSDK.commands.sendActivityInstanceData({
-        type: 'MATCH_UPDATE',
-        data: {
-          matches: matches,
-          message: msg,
-          timestamp: Date.now()
-        }
-      });
-      
-    } catch (error) {
-      console.error("Discord activity update failed:", error);
-    }
-  }
-  
-  // Fallback to localStorage for non-Discord environments
-  if (msg.type === 'create') {
-    matches[msg.game.id] = msg.game;
-  } else if (msg.type === 'leave' && msg.ownerLeft) {
-    delete matches[msg.gameId];
-  }
-  
-  // Broadcast to other tabs/instances
-  window.dispatchEvent(new CustomEvent('gameMessage', {detail: msg}));
-}
-
-  // Listen for Discord activity messages
-  if (typeof DiscordSDK !== "undefined") {
-    DiscordSDK.subscribe('ACTIVITY_MESSAGE', (data) => {
-      console.log("Received activity message:", data);
-      if (data.type === 'CUSTOM' && data.data) {
-        window.dispatchEvent(new CustomEvent('gameMessage', {detail: data.data}));
-      }
-    });
-  }
-
-  // Listen for localStorage changes (cross-tab communication)
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'connectFourMatches') {
-      const newMatches = JSON.parse(e.newValue || '{}');
-      matches = newMatches;
-      renderMatchList();
-    }
-  });
-
-  // Load existing matches on startup
-  function loadMatches() {
-    try {
-      const existingMatches = JSON.parse(localStorage.getItem('connectFourMatches') || '{}');
-      matches = existingMatches;
-      renderMatchList();
-    } catch (error) {
-      console.error("Failed to load matches:", error);
-      matches = {};
-    }
-  }
-
-  window.addEventListener('gameMessage', e => {
-    const msg = e.detail;
-    if(msg.gameId && msg.gameId !== gameId) return;
-
-    switch(msg.type) {
-      case 'create':
-        if(msg.game.id !== gameId) {
-          matches[msg.game.id] = msg.game;
-          renderMatchList();
-        }
-        break;
-      case 'join':
-        if(matches[msg.gameId]) {
-          matches[msg.gameId].players.push('opponent');
-          matches[msg.gameId].state = 'playing';
-          if(currentGame && currentGame.id === msg.gameId) {
-            gameState = 'playing';
-            setStatus("Opponent joined! Your turn!");
-            toggleMatchList(false);
-            updateUIButtons();
-          }
-          renderMatchList();
-        }
-        break;
-      case 'leave':
-        if(msg.ownerLeft){
-          delete matches[msg.gameId];
-          if(currentGame && currentGame.id === msg.gameId){
-            resetGame();
-            toggleMatchList(true);
-          }
-        }
-        renderMatchList();
-        break;
-      case 'move':
-        if(gameState !== 'playing') return;
-        if(msg.player !== myPlayer) {
-          board[msg.row][msg.col] = msg.player;
-          drawBoard();
-          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          setStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-        }
-        break;
-      case 'end':
-        gameState = 'ended';
-        if(msg.winner === PLAYER_NONE){
-          setStatus("It's a draw!");
-        } else if(msg.winner === myPlayer){
-          setStatus("You win!");
-        } else {
-          setStatus("You lose!");
-        }
-        updateUIButtons();
-        break;
-    }
-  });
-
-  // Initialize the game
-  initDiscord().then(() => {
-    setupUI();
-    initBoard();
-    updateUIButtons();
-    loadMatches();
-  });
+  setupUI();
 });
 </script>
-
 </body>
 </html>
