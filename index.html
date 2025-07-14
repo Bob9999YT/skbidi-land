@@ -3,318 +3,683 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Connect Four</title>
+<title>Connect Four Multiplayer & AI</title>
 <style>
-  body { background:#1e1e2f; color:#fff; font-family:'Segoe UI',sans-serif; margin:0; padding:20px; display:flex; align-items:center; justify-content:center; }
-  #gameContainer { background:#ffcc00; border-radius:18px; padding:20px; width:460px; box-shadow:0 0 10px #ffcc00cc; }
-  h1 { color:#222; text-align:center; }
-  #canvas { display:none; margin:0 auto; border-radius:12px; border:3px solid #aa8800; background:#222244; cursor:pointer; }
-  #status { text-align:center; font-weight:700; color:#442200; min-height:24px; margin:10px 0; }
-  #matchList { display:none; background:#ffeeaa; border-radius:12px; padding:10px; max-height:260px; overflow-y:auto; color:#442200; font-weight:700; margin:10px 0; }
-  .matchItem { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #aa8800; padding:6px 0; }
-  .matchPlayer { display:flex; align-items:center; gap:12px; }
-  .avatar-circle { width:36px; height:36px; border-radius:50%; background:#aa8800; color:#222; font-weight:900; font-size:18px; display:flex; align-items:center; justify-content:center; }
-  button { background:#aa8800; border:none; padding:8px 14px; border-radius:14px; font-weight:900; color:#fff; cursor:pointer; margin:4px 0; transition:background-color .2s; }
-  button:hover:not(:disabled) { background:#ddb300; }
-  button:disabled { background:#665500; cursor:not-allowed; }
-  #usernameInput { width:100%; padding:8px; border-radius:14px; border:none; margin-bottom:10px; font-size:18px; font-weight:700; }
-  #menu { display:none; text-align:center; margin:10px 0; }
-  #modeSelect { padding:6px 14px; border-radius:14px; border:none; font-weight:700; }
-  #aiDifficultyButtons { display:none; margin:10px 0; gap:10px; }
-  #aiDifficultyButtons button { font-size:14px; border-radius:12px; padding:6px 10px; }
-  #aiDifficultyButtons button.active { background:#ddb300; color:#222; }
-  #profileDisplay { text-align:center; font-weight:900; color:#442200; margin-bottom:10px; }
-  #refreshMatchesBtn { width:100%; margin-top:10px; }
+  body {
+    background: #1e1e2f;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 {
+    color: #ffaa00;
+    margin-bottom: 10px;
+  }
+  #usernamePrompt {
+    margin-bottom: 15px;
+  }
+  #usernameInput {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: none;
+    width: 280px;
+    font-size: 16px;
+  }
+  #usernameSubmit {
+    background: #ffaa00;
+    border: none;
+    border-radius: 8px;
+    color: #222;
+    padding: 6px 14px;
+    margin-left: 10px;
+    cursor: pointer;
+  }
+  #usernameSubmit:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
+  #menu {
+    display: none;
+    margin-bottom: 10px;
+    width: 350px;
+    background: #29293d;
+    padding: 10px 20px;
+    border-radius: 12px;
+  }
+  label, select {
+    color: #ffaa00;
+    font-weight: bold;
+  }
+  select {
+    margin-left: 10px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+  }
+  #aiDifficultyButtons {
+    margin-top: 10px;
+  }
+  #aiDifficultyButtons button {
+    background: #ffaa00;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin-right: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #222;
+  }
+  #aiDifficultyButtons button.active {
+    background: #ffdd55;
+  }
+  button#refreshMatchesBtn,
+  button#createMatchBtn,
+  button#leaveMatchBtn {
+    margin-top: 12px;
+    width: 100%;
+    background: #ffaa00;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 0;
+    font-weight: bold;
+    cursor: pointer;
+    color: #222;
+    font-size: 18px;
+  }
+  button:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
+  #status {
+    margin-top: 10px;
+    min-height: 22px;
+    font-weight: bold;
+    color: #ffaa00;
+  }
+  #matchList {
+    margin-top: 15px;
+    width: 350px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: #29293d;
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .matchItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid #444;
+    color: #ffaa00;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .matchItem:hover {
+    background: #ffbb22;
+    color: #222;
+  }
+  canvas#canvas {
+    margin-top: 15px;
+    border: 2px solid #ffaa00;
+    border-radius: 12px;
+    cursor: pointer;
+    display: none;
+  }
 </style>
 </head>
 <body>
-<div id="gameContainer">
-  <h1>Connect Four</h1>
-  <div id="usernamePrompt">
-    <input id="usernameInput" placeholder="Enter username"/>
-    <button id="usernameSubmit" disabled>Start</button>
-  </div>
-  <div id="profileDisplay"></div>
-  <div id="menu">
-    <select id="modeSelect">
-      <option value="pvp">Player vs Player</option>
-      <option value="ai">Player vs AI</option>
-    </select>
-    <div id="aiDifficultyButtons">
-      <button data-level="easy">Easy</button>
-      <button data-level="normal" class="active">Normal</button>
-      <button data-level="hard">Hard</button>
-      <button data-level="insane">Insane</button>
-      <button data-level="impossible">Impossible</button>
-    </div>
-    <button id="createMatchBtn">Create Match</button>
-    <button id="leaveMatchBtn" disabled>Leave Match</button>
-    <button id="refreshMatchesBtn">🔄 Refresh Matches</button>
-  </div>
-  <div id="status"></div>
-  <div id="matchList"></div>
-  <canvas id="canvas" width="420" height="360"></canvas>
+
+<h1>Connect Four</h1>
+
+<div id="usernamePrompt">
+  <input id="usernameInput" placeholder="Enter your username" maxlength="20" />
+  <button id="usernameSubmit" disabled>Start</button>
 </div>
 
+<div id="menu">
+  <label for="modeSelect">Game Mode:</label>
+  <select id="modeSelect">
+    <option value="pvp">Player vs Player</option>
+    <option value="ai">Player vs AI</option>
+  </select>
+
+  <div id="aiDifficultyButtons" style="display:none; margin-top: 10px;">
+    <button data-level="easy">Easy</button>
+    <button data-level="normal" class="active">Normal</button>
+    <button data-level="hard">Hard</button>
+    <button data-level="insane">Insane</button>
+    <button data-level="impossible">Impossible</button>
+  </div>
+
+  <button id="createMatchBtn">Create Match</button>
+  <button id="leaveMatchBtn" disabled>Leave Match</button>
+  <button id="refreshMatchesBtn">🔄 Refresh Matches</button>
+</div>
+
+<div id="status"></div>
+
+<div id="matchList"></div>
+
+<canvas id="canvas" width="420" height="360"></canvas>
+
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
 <script>
-function initializeGame() {
-  const config = {
+(() => {
+  // Firebase config with your provided database URL
+  const firebaseConfig = {
     apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
     authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
-    databaseURL: "https://sigma-skibidi-b9e1e-default-rtdb.firebaseio.com",
+    databaseURL: "https://sigma-skibidi-b9e1e-default-rtdb.firebaseio.com/",
     projectId: "sigma-skibidi-b9e1e",
-    storageBucket: "sigma-skibidi-b9e1e.appspot.com",
+    storageBucket: "sigma-skibidi-b9e1e.firebasestorage.app",
     messagingSenderId: "645635975542",
     appId: "1:645635975542:web:f22275c0e2b9ae00f8b257",
     measurementId: "G-G7DX318MFR"
   };
-  firebase.initializeApp(config);
+
+  firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
-  const ROWS = 6, COLS = 7;
-  const board = Array.from({ length: ROWS }, () => Array(COLS).fill(PLAYER_NONE));
+  // Constants
+  const ROWS = 6;
+  const COLS = 7;
+  const EMPTY = 0;
+  const RED = 1;
+  const YELLOW = 2;
 
-  let currentUser = { id: null, username: null };
-  let mode = 'pvp', aiLevel = 'normal';
-  let myPl = PLAYER_NONE, currPl = PLAYER_RED;
-  let matchId = null, inMatch = false;
-
-  const el = id => document.getElementById(id);
-  const usernamePrompt = el('usernamePrompt');
-  const usernameInput = el('usernameInput');
-  const usernameSubmit = el('usernameSubmit');
-  const profileDisplay = el('profileDisplay');
-  const canvas = el('canvas');
+  // DOM elements
+  const usernamePrompt = document.getElementById('usernamePrompt');
+  const usernameInput = document.getElementById('usernameInput');
+  const usernameSubmit = document.getElementById('usernameSubmit');
+  const menu = document.getElementById('menu');
+  const modeSelect = document.getElementById('modeSelect');
+  const aiDifficultyButtons = document.getElementById('aiDifficultyButtons');
+  const createMatchBtn = document.getElementById('createMatchBtn');
+  const leaveMatchBtn = document.getElementById('leaveMatchBtn');
+  const refreshMatchesBtn = document.getElementById('refreshMatchesBtn');
+  const statusDiv = document.getElementById('status');
+  const matchListDiv = document.getElementById('matchList');
+  const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
-  const statusDiv = el('status');
-  const matchListDiv = el('matchList');
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const cell = canvas.width / COLS;
+  // Game state variables
+  let board = [];
+  let currentPlayer = RED;
+  let myPlayer = EMPTY;
+  let gameId = null;
+  let gameMode = 'pvp';
+  let aiDifficulty = 'normal';
+  let userId = null;
+  let username = '';
+  let isInMatch = false;
+  let unsubscribeMatchListener = null;
+
+  // Helpers
+  function initBoard() {
+    board = [];
+    for(let r=0; r<ROWS; r++) {
+      let row = [];
+      for(let c=0; c<COLS; c++) row.push(EMPTY);
+      board.push(row);
+    }
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cellSize = canvas.width / COLS;
+
+    // Draw background
     ctx.fillStyle = '#222244';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const x = c * cell, y = r * cell;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    for(let r=0; r<ROWS; r++) {
+      for(let c=0; c<COLS; c++) {
+        const x = c * cellSize;
+        const y = r * cellSize;
+        // Draw slot
         ctx.beginPath();
         ctx.fillStyle = '#555577';
-        ctx.arc(x + cell/2, y + cell/2, cell/2 - 6, 0, 2*Math.PI);
+        ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 8, 0, Math.PI*2);
         ctx.fill();
-        if (board[r][c] !== PLAYER_NONE) {
+        ctx.closePath();
+
+        // Draw piece if any
+        if(board[r][c] !== EMPTY) {
           ctx.beginPath();
-          ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff5555' : '#ffff77';
-          ctx.arc(x + cell/2, y + cell/2, cell/2 - 12, 0, 2*Math.PI);
+          ctx.fillStyle = board[r][c] === RED ? '#ff5555' : '#ffff77';
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.shadowBlur = 8;
+          ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 14, 0, Math.PI*2);
           ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.closePath();
         }
       }
     }
+  }
+
+  function isColumnFull(col) {
+    return board[0][col] !== EMPTY;
   }
 
   function placePiece(col, player) {
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (board[r][col] === PLAYER_NONE) {
+    for(let r=ROWS-1; r>=0; r--) {
+      if(board[r][col] === EMPTY) {
         board[r][col] = player;
-        return true;
+        return r;
       }
     }
-    return false;
+    return -1;
   }
 
-  function checkWin(player) {
-    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-    const inbound = (r, c) => r>=0 && r<ROWS && c>=0 && c<COLS;
-    for (let r=0; r<ROWS; r++) {
-      for (let c=0; c<COLS; c++) {
-        if (board[r][c] === player) {
-          for (let [dr, dc] of dirs) {
-            let count = 1;
-            for (let i=1; i<4; i++) {
-              const nr = r + dr*i, nc = c + dc*i;
-              if (!inbound(nr, nc) || board[nr][nc] !== player) break;
-              count++;
-            }
-            if (count >= 4) return true;
+  function switchPlayer() {
+    currentPlayer = currentPlayer === RED ? YELLOW : RED;
+  }
+
+  function checkWin(player, b=board) {
+    const directions = [[0,1],[1,0],[1,1],[1,-1]];
+    function inBounds(r,c) { return r>=0 && r<ROWS && c>=0 && c<COLS; }
+
+    for(let r=0; r<ROWS; r++) {
+      for(let c=0; c<COLS; c++) {
+        if(b[r][c] !== player) continue;
+        for(let [dr,dc] of directions) {
+          let count = 1;
+          for(let step=1; step<4; step++) {
+            const nr = r + dr*step;
+            const nc = c + dc*step;
+            if(inBounds(nr,nc) && b[nr][nc] === player) count++;
+            else break;
           }
+          if(count >=4) return true;
         }
       }
     }
     return false;
   }
 
-  function isBoardFull() {
-    return board[0].every(cell => cell !== PLAYER_NONE);
-  }
-
-  function switchTurn() {
-    currPl = (currPl === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED);
-  }
-
-  function resetGame() {
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        board[r][c] = PLAYER_NONE;
-      }
+  function isBoardFull(b=board) {
+    for(let c=0; c<COLS; c++) {
+      if(b[0][c] === EMPTY) return false;
     }
-    draw();
-    canvas.style.display = 'none';
-    el('leaveMatchBtn').disabled = true;
-    inMatch = false;
-    currPl = PLAYER_RED;
-    myPl = PLAYER_NONE;
-    matchId = null;
-    statusDiv.textContent = '';
-    updateMatchList();
+    return true;
   }
 
-  function sendUpdate() {
-    if (!matchId) return;
-    db.ref(`matches/${matchId}`).update({ board, currPl, status: 'playing' });
+  // UI Updates
+  function updateStatus(text) {
+    statusDiv.textContent = text || '';
+  }
+
+  // Firebase related functions
+  function generateUserId() {
+    return 'user-' + Math.random().toString(36).slice(2,10);
   }
 
   function createMatch() {
-    if (inMatch) return alert('Already in a game!');
-    resetGame();
+    if(isInMatch) {
+      alert("You are already in a match.");
+      return;
+    }
+    initBoard();
+    drawBoard();
+    currentPlayer = RED;
+    myPlayer = RED;
+    isInMatch = true;
+    leaveMatchBtn.disabled = false;
     canvas.style.display = 'block';
-    el('leaveMatchBtn').disabled = false;
-    inMatch = true;
-    myPl = PLAYER_RED;
-    currPl = PLAYER_RED;
-    const ref = db.ref('matches').push();
-    matchId = ref.key;
-    ref.set({ owner: currentUser, board, currPl, status: 'waiting', mode });
-    listenToMatch();
-    statusDiv.textContent = 'Waiting for opponent...';
-    updateMatchList();
+    updateStatus("Waiting for opponent to join...");
+
+    const newMatchRef = db.ref('matches').push();
+    gameId = newMatchRef.key;
+
+    newMatchRef.set({
+      owner: { id: userId, username: username },
+      opponent: null,
+      board: board,
+      currentPlayer: currentPlayer,
+      status: "waiting",
+      mode: gameMode,
+      createdAt: Date.now(),
+      aiDifficulty: gameMode === 'ai' ? aiDifficulty : null
+    });
+
+    listenToMatch(gameId);
+    renderMatchList();
   }
 
   function joinMatch(id) {
-    if (inMatch) return alert('Already in a game!');
-    const ref = db.ref(`matches/${id}`);
-    ref.once('value', snap => {
-      const m = snap.val();
-      if (!m || m.status !== 'waiting') return alert('Not available');
-      ref.update({ opponent: currentUser, status: 'playing' });
-      inMatch = true;
-      myPl = PLAYER_YELLOW;
-      currPl = m.currPl;
-      canvas.style.display = 'block';
-      el('leaveMatchBtn').disabled = false;
-      listenToMatch();
-      statusDiv.textContent = "Your turn";
-    });
-  }
-
-  function listenToMatch() {
-    db.ref(`matches/${matchId}`).on('value', snap => {
-      const m = snap.val();
-      if (!m) { resetGame(); return; }
-      m.board.forEach((row, r) => row.forEach((v, c) => { board[r][c] = v; }));
-      currPl = m.currPl;
-      draw();
-      if (m.status === 'waiting') {
-        statusDiv.textContent = (myPl === PLAYER_RED ? 'Waiting for opponent...' : 'Joined — waiting...');
-      } else {
-        statusDiv.textContent = (currPl === myPl ? 'Your turn' : "Opponent's turn");
+    if(isInMatch) {
+      alert("Already in a match!");
+      return;
+    }
+    const matchRef = db.ref('matches/' + id);
+    matchRef.once('value').then(snapshot => {
+      if(!snapshot.exists()) {
+        alert("Match not found.");
+        return;
       }
-      updateMatchList();
+      const data = snapshot.val();
+      if(data.status !== 'waiting') {
+        alert("Match already started.");
+        return;
+      }
+      if(data.owner.id === userId) {
+        alert("You cannot join your own match.");
+        return;
+      }
+      matchRef.update({
+        opponent: { id: userId, username: username },
+        status: 'playing'
+      });
+      gameId = id;
+      isInMatch = true;
+      myPlayer = YELLOW;
+      board = data.board || board;
+      currentPlayer = data.currentPlayer || RED;
+      canvas.style.display = 'block';
+      updateStatus("Your turn!");
+      leaveMatchBtn.disabled = false;
+      listenToMatch(gameId);
+      renderMatchList();
     });
   }
 
   function leaveMatch() {
-    if (!matchId) return;
-    const ref = db.ref(`matches/${matchId}`);
-    ref.once('value', snap => {
-      const m = snap.val();
-      if (m.owner.id === currentUser.id) ref.remove();
-      else if (m.opponent) ref.update({ opponent: null, status: 'waiting' });
-    });
-    resetGame();
-  }
-
-  function updateMatchList() {
-    matchListDiv.innerHTML = '';
-    if (mode !== 'pvp') { matchListDiv.style.display = 'none'; return; }
-    matchListDiv.style.display = 'block';
-    db.ref('matches').once('value', snap => {
-      const all = snap.val() || {};
-      Object.entries(all).forEach(([id, m]) => {
-        if (m.status === 'waiting' && m.owner.id !== currentUser.id) {
-          const div = document.createElement('div');
-          div.className = 'matchItem';
-          div.innerHTML = `
-            <div class="matchPlayer">
-              <div class="avatar-circle">${m.owner.username[0]}</div>
-              <span>${m.owner.username}</span>
-            </div>
-            <button>Join</button>
-          `;
-          div.querySelector('button').onclick = () => joinMatch(id);
-          matchListDiv.appendChild(div);
+    if(!isInMatch) return;
+    if(gameMode === 'pvp' && gameId) {
+      const matchRef = db.ref('matches/' + gameId);
+      matchRef.once('value').then(snapshot => {
+        if(!snapshot.exists()) {
+          resetGame();
+          renderMatchList();
+          return;
         }
+        const data = snapshot.val();
+        if(data.owner.id === userId) {
+          matchRef.remove();
+        } else if(data.opponent && data.opponent.id === userId) {
+          matchRef.update({
+            opponent: null,
+            status: 'waiting'
+          });
+        }
+        resetGame();
+        renderMatchList();
       });
+    } else {
+      resetGame();
+      renderMatchList();
+    }
+  }
+
+  function resetGame() {
+    if(unsubscribeMatchListener) {
+      unsubscribeMatchListener();
+      unsubscribeMatchListener = null;
+    }
+    isInMatch = false;
+    gameId = null;
+    myPlayer = EMPTY;
+    canvas.style.display = 'none';
+    leaveMatchBtn.disabled = true;
+    initBoard();
+    drawBoard();
+    updateStatus('');
+  }
+
+  function listenToMatch(id) {
+    const matchRef = db.ref('matches/' + id);
+    if(unsubscribeMatchListener) {
+      unsubscribeMatchListener();
+    }
+    unsubscribeMatchListener = matchRef.on('value', snapshot => {
+      if(!snapshot.exists()) {
+        updateStatus('Match ended.');
+        resetGame();
+        renderMatchList();
+        return;
+      }
+      const data = snapshot.val();
+      board = data.board || board;
+      currentPlayer = data.currentPlayer || RED;
+      drawBoard();
+
+      if(data.status === 'waiting') {
+        if(data.owner.id === userId) {
+          updateStatus("Waiting for opponent...");
+        } else {
+          updateStatus("Opponent joined. Your turn!");
+        }
+      } else if(data.status === 'playing') {
+        if(currentPlayer === myPlayer) {
+          updateStatus("Your turn");
+        } else {
+          updateStatus("Opponent's turn");
+        }
+      } else if(data.status === 'ended') {
+        updateStatus("Game ended.");
+      }
     });
   }
 
-  usernameInput.oninput = () => usernameSubmit.disabled = !usernameInput.value.trim();
-  usernameSubmit.onclick = () => {
-    currentUser.username = usernameInput.value.trim();
-    currentUser.id = 'u' + Math.random().toString(36).substr(2,9);
-    usernamePrompt.style.display = 'none';
-    profileDisplay.textContent = `Logged in as: ${currentUser.username}`;
-    el('menu').style.display = 'block';
-    updateMatchList();
-  };
+  function updateMatchInFirebase() {
+    if(!gameId) return;
+    const matchRef = db.ref('matches/' + gameId);
+    matchRef.update({
+      board: board,
+      currentPlayer: currentPlayer
+    });
+  }
 
-  el('modeSelect').onchange = e => {
-    mode = e.target.value;
-    el('aiDifficultyButtons').style.display = (mode === 'ai' ? 'flex' : 'none');
-    resetGame();
-    updateMatchList();
-  };
+  function handleCanvasClick(e) {
+    if(!isInMatch || currentPlayer !== myPlayer) return;
 
-  document.querySelectorAll('#aiDifficultyButtons button').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('#aiDifficultyButtons button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      aiLevel = btn.dataset.level;
-    };
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const cellSize = canvas.width / COLS;
+    const col = Math.floor(x / cellSize);
+
+    if(col < 0 || col >= COLS) return;
+    if(isColumnFull(col)) return;
+
+    const row = placePiece(col, myPlayer);
+    drawBoard();
+
+    if(checkWin(myPlayer)) {
+      updateStatus("You win!");
+      if(gameMode === 'pvp') {
+        db.ref('matches/' + gameId).update({ status: 'ended' });
+      }
+      isInMatch = false;
+      leaveMatchBtn.disabled = true;
+      return;
+    }
+
+    if(isBoardFull()) {
+      updateStatus("It's a draw!");
+      if(gameMode === 'pvp') {
+        db.ref('matches/' + gameId).update({ status: 'ended' });
+      }
+      isInMatch = false;
+      leaveMatchBtn.disabled = true;
+      return;
+    }
+
+    switchPlayer();
+
+    if(gameMode === 'pvp') {
+      updateMatchInFirebase();
+      updateStatus("Opponent's turn");
+    } else if(gameMode === 'ai') {
+      updateStatus("AI's turn");
+      setTimeout(() => {
+        aiMakeMove();
+      }, 600);
+    }
+  }
+
+  // --- AI logic (basic normal) ---
+
+  function aiMakeMove() {
+    const validCols = [];
+    for(let c=0; c<COLS; c++) {
+      if(!isColumnFull(c)) validCols.push(c);
+    }
+    if(validCols.length === 0) return;
+
+    // Simple AI: block or win or random
+
+    // Try winning move
+    for(const col of validCols) {
+      let tempBoard = board.map(r => r.slice());
+      const row = placePieceInBoard(tempBoard, col, YELLOW);
+      if(row !== -1 && checkWin(YELLOW, tempBoard)) {
+        placePiece(col, YELLOW);
+        drawBoard();
+        endOrSwitchAfterAIMove();
+        return;
+      }
+    }
+
+    // Try blocking player
+    for(const col of validCols) {
+      let tempBoard = board.map(r => r.slice());
+      const row = placePieceInBoard(tempBoard, col, RED);
+      if(row !== -1 && checkWin(RED, tempBoard)) {
+        placePiece(col, YELLOW);
+        drawBoard();
+        endOrSwitchAfterAIMove();
+        return;
+      }
+    }
+
+    // Else random
+    const col = validCols[Math.floor(Math.random()*validCols.length)];
+    placePiece(col, YELLOW);
+    drawBoard();
+    endOrSwitchAfterAIMove();
+  }
+
+  function placePieceInBoard(b, col, player) {
+    for(let r=ROWS-1; r>=0; r--) {
+      if(b[r][col] === EMPTY) {
+        b[r][col] = player;
+        return r;
+      }
+    }
+    return -1;
+  }
+
+  function endOrSwitchAfterAIMove() {
+    if(checkWin(YELLOW)) {
+      updateStatus("AI wins!");
+      isInMatch = false;
+      leaveMatchBtn.disabled = true;
+      return;
+    }
+    if(isBoardFull()) {
+      updateStatus("It's a draw!");
+      isInMatch = false;
+      leaveMatchBtn.disabled = true;
+      return;
+    }
+    switchPlayer();
+    updateStatus("Your turn");
+  }
+
+  // --- Matches list and UI ---
+
+  function renderMatchList() {
+    matchListDiv.innerHTML = '';
+    const matchesRef = db.ref('matches');
+    matchesRef.orderByChild('createdAt').limitToLast(30).once('value').then(snapshot => {
+      const data = snapshot.val();
+      if(!data) {
+        matchListDiv.innerHTML = '<p style="color:#aaa; font-style:italic;">No available matches</p>';
+        return;
+      }
+      const entries = Object.entries(data);
+      let availableMatches = entries.filter(([id, match]) => {
+        return match.status === 'waiting' && match.owner.id !== userId;
+      });
+      if(availableMatches.length === 0) {
+        matchListDiv.innerHTML = '<p style="color:#aaa; font-style:italic;">No available matches</p>';
+        return;
+      }
+      availableMatches.reverse(); // Newest first
+      for(const [id, match] of availableMatches) {
+        const div = document.createElement('div');
+        div.className = 'matchItem';
+        div.textContent = `Host: ${match.owner.username}`;
+        div.onclick = () => joinMatch(id);
+        matchListDiv.appendChild(div);
+      }
+    });
+  }
+
+  // --- UI Events ---
+
+  usernameInput.addEventListener('input', () => {
+    usernameSubmit.disabled = usernameInput.value.trim().length === 0;
   });
 
-  el('createMatchBtn').onclick = createMatch;
-  el('leaveMatchBtn').onclick = leaveMatch;
-  el('refreshMatchesBtn').onclick = updateMatchList;
+  usernameSubmit.addEventListener('click', () => {
+    username = usernameInput.value.trim();
+    if(username.length === 0) return;
+    userId = generateUserId();
+    usernamePrompt.style.display = 'none';
+    menu.style.display = 'block';
+    updateStatus('');
+    renderMatchList();
+  });
 
-  canvas.onclick = e => {
-    if (!inMatch || currPl !== myPl) return;
-    const rect = canvas.getBoundingClientRect();
-    const col = Math.floor((e.clientX - rect.left) / (canvas.width / COLS));
-    if (!placePiece(col, myPl)) return;
-    draw();
-    if (checkWin(myPl)) { statusDiv.textContent = 'You win!'; leaveMatch(); return; }
-    if (isBoardFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); return; }
-    switchTurn();
-    if (mode === 'pvp') sendUpdate();
-    else {
-      statusDiv.textContent = "AI's turn";
-      setTimeout(() => {
-        const aiCol = Math.floor(Math.random() * COLS);
-        placePiece(aiCol, PLAYER_YELLOW);
-        draw();
-        if (checkWin(PLAYER_YELLOW)) { statusDiv.textContent = 'AI wins!'; leaveMatch(); }
-        else if (isBoardFull()) { statusDiv.textContent = 'Draw!'; leaveMatch(); }
-        else { switchTurn(); statusDiv.textContent = 'Your turn'; }
-      }, 500);
+  modeSelect.addEventListener('change', () => {
+    gameMode = modeSelect.value;
+    if(gameMode === 'ai') {
+      aiDifficultyButtons.style.display = 'block';
+    } else {
+      aiDifficultyButtons.style.display = 'none';
     }
-  };
+    resetGame();
+  });
 
-  draw();
-}
+  aiDifficultyButtons.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      aiDifficultyButtons.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      aiDifficulty = btn.getAttribute('data-level');
+    });
+  });
 
-initializeGame();
+  createMatchBtn.addEventListener('click', () => {
+    createMatch();
+  });
+
+  leaveMatchBtn.addEventListener('click', () => {
+    leaveMatch();
+  });
+
+  refreshMatchesBtn.addEventListener('click', () => {
+    renderMatchList();
+  });
+
+  canvas.addEventListener('click', handleCanvasClick);
+
+  // Initialize empty board & draw blank board
+  initBoard();
+  drawBoard();
+})();
 </script>
+
 </body>
 </html>
