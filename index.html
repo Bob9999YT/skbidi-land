@@ -21,6 +21,7 @@
     padding: 20px;
     min-height: 100vh;
   }
+
   .header {
     display: flex;
     justify-content: space-between;
@@ -29,12 +30,14 @@
     max-width: 600px;
     margin-bottom: 20px;
   }
+
   h1 {
     font-size: 2rem;
     color: #ffaa00;
     margin: 0;
     text-align: center;
   }
+
   .user-profile {
     display: flex;
     align-items: center;
@@ -43,30 +46,32 @@
     padding: 8px 12px;
     border-radius: 8px;
     border: 2px solid #ffaa00;
-    min-width: 140px;
-    justify-content: center;
+    user-select: none;
   }
-  .avatar-circle {
+
+  .user-profile .avatar-circle {
     width: 32px;
     height: 32px;
     border-radius: 50%;
     background-color: #ffaa00;
     color: #111;
-    font-weight: bold;
-    font-size: 18px;
+    font-weight: 700;
+    font-size: 20px;
     display: flex;
-    align-items: center;
     justify-content: center;
-    user-select: none;
+    align-items: center;
+    text-transform: uppercase;
   }
-  .username-text {
+
+  .user-profile span {
     font-weight: 600;
     color: #ffaa00;
   }
+
   .menu {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px 16px;
+    gap: 14px 24px;
     justify-content: center;
     align-items: center;
     margin-bottom: 20px;
@@ -106,19 +111,18 @@
     box-shadow: 0 1px 0 #ffaa00;
   }
   button:disabled {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
+    transform: none;
   }
   button:disabled:hover {
-    transform: none !important;
+    transform: none;
   }
   #aiDifficultyButtons {
     display: flex;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     width: 100%;
     max-width: 600px;
   }
@@ -132,7 +136,6 @@
     box-shadow: 0 2px 0 #ffaa00;
     color: white;
     cursor: pointer;
-    transition: all 0.2s ease;
   }
   #aiDifficultyButtons button.active {
     background: #ffaa00;
@@ -177,6 +180,10 @@
   #matchesContainer {
     max-height: 240px;
     overflow-y: auto;
+    border-radius: 6px;
+    border: 1.5px solid #ffaa00;
+    padding: 8px;
+    background: #1f1f2b;
   }
   .matchItem {
     background: #29293d;
@@ -192,6 +199,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
   }
   .matchItem .playerInfo .avatar-circle {
     width: 28px;
@@ -208,10 +216,14 @@
     transition: transform 0.15s ease;
     font-size: 0.9rem;
     box-shadow: none;
-    min-width: 70px;
   }
   .matchItem button:hover:not(:disabled) {
     transform: scale(1.1);
+  }
+  .matchItem button:disabled {
+    background: #444;
+    cursor: not-allowed;
+    transform: none;
   }
   #matchesContainer::-webkit-scrollbar {
     width: 8px;
@@ -225,83 +237,65 @@
     color: #888;
     padding: 20px;
   }
-
-  /* Username prompt modal */
-  #usernameModal {
-    position: fixed;
-    inset: 0;
-    background: #000d;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-  }
-  #usernameModalContent {
+  #usernamePromptContainer {
     background: #29293d;
     border: 2px solid #ffaa00;
     border-radius: 12px;
-    padding: 24px;
-    width: 320px;
-    text-align: center;
+    padding: 20px;
+    max-width: 360px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  #usernameModalContent h2 {
-    margin-top: 0;
-    color: #ffaa00;
-  }
-  #usernameInput {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 1rem;
+  #usernamePromptContainer input {
+    font-size: 1.2rem;
+    padding: 10px 14px;
     border-radius: 6px;
     border: 2px solid #ffaa00;
-    background: #1e1e2f;
+    background: #1f1f2b;
     color: white;
-    margin: 16px 0;
-    box-sizing: border-box;
-  }
-  #usernameSubmit {
-    background: #ffaa00;
-    border: none;
-    color: #111;
-    font-weight: 700;
-    padding: 10px 16px;
-    border-radius: 6px;
-    cursor: pointer;
     width: 100%;
-    font-size: 1.1rem;
-    box-shadow: 0 3px 0 #bb8800;
-    transition: all 0.15s ease;
+    margin-bottom: 15px;
   }
-  #usernameSubmit:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  #usernamePromptContainer button {
+    font-size: 1.1rem;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 2px solid #ffaa00;
+    background: #ffaa00;
+    color: #111;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #b27f00;
+    transition: all 0.2s ease;
+  }
+  #usernamePromptContainer button:hover {
+    background: #ffbb33;
     box-shadow: none;
   }
-  #usernameSubmit:hover:not(:disabled) {
-    background: #e6a800;
-    box-shadow: 0 5px 0 #bb8800;
+  #usernamePromptContainer button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>
 </head>
 <body>
 
-<div id="usernameModal">
-  <div id="usernameModalContent">
-    <h2>Enter Your Username</h2>
-    <input id="usernameInput" type="text" maxlength="15" placeholder="Your username (3-15 chars)" />
-    <button id="usernameSubmit" disabled>Continue</button>
-  </div>
+<div id="usernamePromptContainer">
+  <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
+  <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" />
+  <button id="usernameSubmit" disabled>Start Playing</button>
 </div>
 
-<div class="header" style="display:none;" id="mainUI">
+<div class="header" style="display:none;">
   <h1>Connect Four</h1>
   <div class="user-profile">
-    <div class="avatar-circle" id="avatarCircle">G</div>
-    <div class="username-text" id="usernameDisplay">Guest</div>
+    <div class="avatar-circle" id="userAvatar">G</div>
+    <span id="username">Guest</span>
   </div>
 </div>
 
-<div class="menu" style="display:none;" id="mainUIControls">
+<div class="menu" style="display:none;">
   <label for="rows">Rows:</label>
   <select id="rows" name="rows"></select>
 
@@ -316,7 +310,6 @@
 
   <button id="create">Create Game</button>
   <button id="leave" disabled>Leave Game</button>
-  <button id="refreshMatchesBtn">🔄 Refresh Matches</button>
 </div>
 
 <div id="aiDifficultyButtons" style="display:none;">
@@ -328,7 +321,7 @@
 </div>
 
 <canvas id="gameCanvas" width="490" height="420" style="display:none;"></canvas>
-<div id="status" style="max-width:600px; text-align:center; margin-top:20px; display:none;">Click "Create Game" to start playing!</div>
+<div id="status" style="max-width:600px; text-align:center; margin-top:10px; display:none;">Click "Create Game" to start playing!</div>
 
 <div id="matchList" style="display:none;">
   <h3>Available Matches</h3>
@@ -336,35 +329,14 @@
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+(() => {
   const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const statusText = document.getElementById('status');
-  const matchesContainer = document.getElementById('matchesContainer');
 
-  const rowSel = document.getElementById('rows');
-  const colSel = document.getElementById('cols');
-  const modeSel = document.getElementById('mode');
-  const createBtn = document.getElementById('create');
-  const leaveBtn = document.getElementById('leave');
-  const aiDifficultyDiv = document.getElementById('aiDifficultyButtons');
-  const aiButtons = aiDifficultyDiv.querySelectorAll('button');
-  const refreshMatchesBtn = document.getElementById('refreshMatchesBtn');
+  let isInMatch = false;
 
-  const usernameModal = document.getElementById('usernameModal');
-  const usernameInput = document.getElementById('usernameInput');
-  const usernameSubmit = document.getElementById('usernameSubmit');
-  const mainUI = document.getElementById('mainUI');
-  const mainUIControls = document.getElementById('mainUIControls');
-  const avatarCircle = document.getElementById('avatarCircle');
-  const usernameDisplay = document.getElementById('usernameDisplay');
-  const matchListDiv = document.getElementById('matchList');
+  let currentUser = { username: null };
+  let currentUserId = null;
 
-  let username = '';
-  let colorForUsername = '#ffaa00';
-
-  // Game variables
   let rows = 6, cols = 7;
   let board = [];
   let currentPlayer = PLAYER_RED;
@@ -372,543 +344,540 @@ document.addEventListener("DOMContentLoaded", () => {
   let myPlayer = PLAYER_NONE;
   let gameId = null;
   let gameMode = 'pvp';
-  let currentGame = null;
   let aiDifficulty = 'normal';
 
-  // Global matches datastore simulation
-  let matches = {}; // { id: {id, players:[], state, rows, cols, mode, difficulty, created, endedAt}}
+  const matches = {}; // id -> match object, global matches only for pvp
 
-  // --- Helpers ---
+  // DOM Elements
+  const usernamePromptContainer = document.getElementById('usernamePromptContainer');
+  const usernameInput = document.getElementById('usernameInput');
+  const usernameSubmit = document.getElementById('usernameSubmit');
+  const header = document.querySelector('.header');
+  const userAvatarDiv = document.getElementById('userAvatar');
+  const usernameSpan = document.getElementById('username');
 
-  function stringToColor(str) {
+  const menu = document.querySelector('.menu');
+  const rowSel = document.getElementById('rows');
+  const colSel = document.getElementById('cols');
+  const modeSel = document.getElementById('mode');
+  const createBtn = document.getElementById('create');
+  const leaveBtn = document.getElementById('leave');
+
+  const aiDifficultyDiv = document.getElementById('aiDifficultyButtons');
+  const aiButtons = aiDifficultyDiv.querySelectorAll('button');
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const statusText = document.getElementById('status');
+
+  const matchesContainer = document.getElementById('matchesContainer');
+  const matchListDiv = document.getElementById('matchList');
+
+  // Utils
+  function makeId() {
+    return 'match_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  function getAvatarColor(name) {
+    // Simple hash to color
     let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const c = (hash & 0x00FFFFFF)
-      .toString(16)
-      .toUpperCase();
-    return "#" + "00000".substring(0, 6 - c.length) + c;
+    const colors = [
+      '#f44336', '#e91e63', '#9c27b0', '#673ab7',
+      '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
+      '#009688', '#4caf50', '#8bc34a', '#cddc39',
+      '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'
+    ];
+    return colors[Math.abs(hash) % colors.length];
   }
 
-  // --- Username prompt handling ---
-  usernameInput.addEventListener('input', () => {
-    const val = usernameInput.value.trim();
-    usernameSubmit.disabled = val.length < 3 || val.length > 15;
-  });
-
-  usernameSubmit.addEventListener('click', () => {
-    const val = usernameInput.value.trim();
-    if (val.length >= 3 && val.length <= 15) {
-      username = val;
-      colorForUsername = stringToColor(username);
-      avatarCircle.textContent = username[0].toUpperCase();
-      avatarCircle.style.backgroundColor = colorForUsername;
-      usernameDisplay.textContent = username;
-      usernameModal.style.display = 'none';
-      mainUI.style.display = 'flex';
-      mainUIControls.style.display = 'flex';
-      canvas.style.display = 'block';
-      statusText.style.display = 'block';
-      matchListDiv.style.display = 'block';
-
-      fillDropdown(rowSel, 4, 10, 6);
-      fillDropdown(colSel, 4, 10, 7);
-      updateAiDifficultyVisibility();
-      refreshMatches();
-    }
-  });
-
-  usernameInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !usernameSubmit.disabled) {
-      usernameSubmit.click();
-      e.preventDefault();
-    }
-  });
-
-  function fillDropdown(selectElem, min, max, defaultVal) {
-    selectElem.innerHTML = '';
-    for (let i = min; i <= max; i++) {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = i;
-      if (i === defaultVal) opt.selected = true;
-      selectElem.appendChild(opt);
-    }
+  function updateUserProfile() {
+    usernameSpan.textContent = currentUser.username;
+    const firstLetter = currentUser.username.charAt(0).toUpperCase();
+    userAvatarDiv.textContent = firstLetter;
+    userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
   }
 
-  // --- Board Drawing ---
+  // Board functions
   function initBoard() {
-    board = [];
-    for (let r = 0; r < rows; r++) {
-      board[r] = [];
-      for (let c = 0; c < cols; c++) {
-        board[r][c] = PLAYER_NONE;
-      }
-    }
+    board = Array.from({length: rows}, () => Array(cols).fill(PLAYER_NONE));
+    updateCanvasSize();
+  }
+
+  function updateCanvasSize() {
+    canvas.width = cols * 70;
+    canvas.height = rows * 70;
+    if(board.length) drawBoard();
   }
 
   function drawBoard() {
-    const width = canvas.width;
-    const height = canvas.height;
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Background grid
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const cellWidth = width / cols;
-    const cellHeight = height / rows;
-
-    ctx.fillStyle = '#002266';
-    ctx.fillRect(0, 0, width, height);
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        let x = c * cellWidth;
-        let y = r * cellHeight;
+    for(let r = 0; r < rows; r++) {
+      for(let c = 0; c < cols; c++) {
+        let x = c * 70;
+        let y = r * 70;
+        ctx.fillStyle = '#1e1e2f';
         ctx.beginPath();
-        ctx.fillStyle = '#001144';
-        ctx.strokeStyle = '#000022';
-        ctx.lineWidth = 2;
-        ctx.rect(x + 4, y + 4, cellWidth - 8, cellHeight - 8);
+        ctx.arc(x + 35, y + 35, 30, 0, 2 * Math.PI);
         ctx.fill();
-        ctx.stroke();
 
-        if (board[r][c] !== PLAYER_NONE) {
-          const centerX = x + cellWidth / 2;
-          const centerY = y + cellHeight / 2;
-          const radius = Math.min(cellWidth, cellHeight) / 2 - 8;
-
+        if(board[r][c] === PLAYER_RED) {
+          ctx.fillStyle = '#ff3333';
           ctx.beginPath();
-          ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff4444' : '#ffff00';
-          ctx.shadowColor = '#0008';
-          ctx.shadowBlur = 5;
-          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
           ctx.fill();
-          ctx.shadowBlur = 0;
+        } else if(board[r][c] === PLAYER_YELLOW) {
+          ctx.fillStyle = '#ffff66';
+          ctx.beginPath();
+          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
+          ctx.fill();
         }
       }
     }
   }
 
-  // --- Game Logic ---
-  function checkWin(board, player) {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (board[r][c] !== player) continue;
-        if (c + 3 < cols &&
-          board[r][c + 1] === player &&
-          board[r][c + 2] === player &&
-          board[r][c + 3] === player) return true;
-        if (r + 3 < rows &&
-          board[r + 1][c] === player &&
-          board[r + 2][c] === player &&
-          board[r + 3][c] === player) return true;
-        if (r + 3 < rows && c + 3 < cols &&
-          board[r + 1][c + 1] === player &&
-          board[r + 2][c + 2] === player &&
-          board[r + 3][c + 3] === player) return true;
-        if (r - 3 >= 0 && c + 3 < cols &&
-          board[r - 1][c + 1] === player &&
-          board[r - 2][c + 2] === player &&
-          board[r - 3][c + 3] === player) return true;
+  // Game logic
+  function findLowestEmptyRow(col) {
+    for(let r = rows - 1; r >= 0; r--) {
+      if(board[r][col] === PLAYER_NONE) return r;
+    }
+    return -1;
+  }
+
+  function checkWin(player) {
+    // Check horizontal
+    for(let r = 0; r < rows; r++) {
+      for(let c = 0; c <= cols - 4; c++) {
+        if(board[r][c] === player && board[r][c+1] === player && board[r][c+2] === player && board[r][c+3] === player)
+          return true;
+      }
+    }
+    // Check vertical
+    for(let c = 0; c < cols; c++) {
+      for(let r = 0; r <= rows - 4; r++) {
+        if(board[r][c] === player && board[r+1][c] === player && board[r+2][c] === player && board[r+3][c] === player)
+          return true;
+      }
+    }
+    // Check diagonal /
+    for(let r = 3; r < rows; r++) {
+      for(let c = 0; c <= cols - 4; c++) {
+        if(board[r][c] === player && board[r-1][c+1] === player && board[r-2][c+2] === player && board[r-3][c+3] === player)
+          return true;
+      }
+    }
+    // Check diagonal \
+    for(let r = 0; r <= rows - 4; r++) {
+      for(let c = 0; c <= cols - 4; c++) {
+        if(board[r][c] === player && board[r+1][c+1] === player && board[r+2][c+2] === player && board[r+3][c+3] === player)
+          return true;
       }
     }
     return false;
   }
 
-  function isBoardFull(board) {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (board[r][c] === PLAYER_NONE) return false;
-      }
+  function checkDraw() {
+    for(let c = 0; c < cols; c++) {
+      if(board[0][c] === PLAYER_NONE) return false;
     }
     return true;
   }
 
-  function dropPiece(board, col, player) {
-    for (let r = rows - 1; r >= 0; r--) {
-      if (board[r][col] === PLAYER_NONE) {
-        board[r][col] = player;
-        return true;
-      }
-    }
-    return false;
-  }
+  // Networking simulation for global matches
+  // Since we don't have a real server, we'll simulate server with localStorage + events
 
-  function getAvailableMoves(board) {
-    const moves = [];
-    for (let c = 0; c < cols; c++) {
-      if (board[0][c] === PLAYER_NONE) moves.push(c);
-    }
-    return moves;
-  }
+  const STORAGE_KEY = 'connect_four_global_matches';
 
-  // --- AI Logic ---
-  function aiMove() {
-    const moves = getAvailableMoves(board);
-    if (moves.length === 0) return -1;
-    // Simple random AI
-    return moves[Math.floor(Math.random() * moves.length)];
-  }
-
-  // --- Match Management ---
-
-  function generateMatchId() {
-    return 'match_' + Math.random().toString(36).substr(2, 9);
-  }
-
-  function cleanupMatches() {
-    const now = Date.now();
-    for (const id in matches) {
-      const m = matches[id];
-      if (!m) continue;
-      if (m.state === 'ended' && (now - m.endedAt) > 5 * 60 * 1000) {
-        delete matches[id];
-        continue;
-      }
-      if ((now - m.created) > 30 * 60 * 1000) {
-        delete matches[id];
-      }
+  function loadGlobalMatches() {
+    let data = localStorage.getItem(STORAGE_KEY);
+    if(!data) return {};
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
     }
   }
 
-  function refreshMatches() {
-    cleanupMatches();
+  function saveGlobalMatches() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+  }
+
+  function refreshMatchesList() {
+    // Remove all, then add filtered matches
     matchesContainer.innerHTML = '';
+    let hasAny = false;
 
-    const allMatches = Object.values(matches).filter(m => m.mode === 'pvp');
+    for(let id in matches) {
+      const m = matches[id];
+      if(m.mode !== 'pvp') continue; // no AI matches shown here
+      if(m.status !== 'waiting') continue;
+      if(m.creatorId === currentUserId) continue; // hide own matches
 
-    if (allMatches.length === 0) {
-      matchesContainer.innerHTML = '<div class="no-matches">No matches available.</div>';
-      return;
-    }
+      hasAny = true;
 
-    allMatches.sort((a, b) => b.created - a.created);
-
-    let anyShown = false;
-    allMatches.forEach(m => {
-      // Hide matches that include you
-      if (m.players.includes(username)) return;
-
-      const matchDiv = document.createElement('div');
-      matchDiv.className = 'matchItem';
+      const div = document.createElement('div');
+      div.className = 'matchItem';
 
       const playersDiv = document.createElement('div');
       playersDiv.className = 'playerInfo';
 
-      m.players.forEach(p => {
-        const av = document.createElement('div');
-        av.className = 'avatar-circle';
-        av.textContent = p[0].toUpperCase();
-        av.style.backgroundColor = stringToColor(p);
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = p;
-        playersDiv.appendChild(av);
-        playersDiv.appendChild(nameSpan);
-      });
+      const avatarDiv = document.createElement('div');
+      avatarDiv.className = 'avatar-circle';
+      avatarDiv.textContent = m.creatorName.charAt(0).toUpperCase();
+      avatarDiv.style.backgroundColor = getAvatarColor(m.creatorName);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = m.creatorName;
+
+      playersDiv.appendChild(avatarDiv);
+      playersDiv.appendChild(nameSpan);
+
+      div.appendChild(playersDiv);
 
       const joinBtn = document.createElement('button');
       joinBtn.textContent = 'Join';
+      joinBtn.disabled = isInMatch; // disable join if already in a match
+      joinBtn.onclick = () => joinMatch(id);
+      div.appendChild(joinBtn);
 
-      if (gameId) {
-        joinBtn.disabled = true;
-        joinBtn.textContent = 'In Match';
-      } else if (m.state !== 'waiting' || m.players.length >= 2) {
-        joinBtn.disabled = true;
-        joinBtn.textContent = m.state !== 'waiting' ? 'Unavailable' : 'Full';
-      } else {
-        joinBtn.onclick = () => {
-          joinMatch(m.id);
-        };
-      }
+      matchesContainer.appendChild(div);
+    }
 
-      matchDiv.appendChild(playersDiv);
-      matchDiv.appendChild(joinBtn);
-      matchesContainer.appendChild(matchDiv);
-      anyShown = true;
-    });
-
-    if (!anyShown) {
+    if(!hasAny) {
       matchesContainer.innerHTML = '<div class="no-matches">No matches available.</div>';
     }
   }
 
+  function saveMatchesToStorage() {
+    saveGlobalMatches();
+    window.dispatchEvent(new Event('storage')); // notify other tabs
+  }
+
   function createMatch() {
-    if (gameId) return; // Prevent creating if in match
-
-    rows = parseInt(rowSel.value);
-    cols = parseInt(colSel.value);
-    gameMode = modeSel.value;
-    aiDifficulty = Array.from(aiButtons).find(b => b.classList.contains('active')).dataset.level;
-
-    if (gameMode === 'ai') {
-      // AI matches are client-only, do not add to global matches store
-      gameId = 'local_ai_match';
-      currentGame = {
-        id: gameId,
-        players: [username, 'AI'],
-        state: 'playing',
-        rows: rows,
-        cols: cols,
-        mode: 'ai',
-        difficulty: aiDifficulty,
-        created: Date.now(),
-        endedAt: null,
-      };
-      initBoard();
-      currentPlayer = PLAYER_RED;
-      myPlayer = PLAYER_RED;
-      gameState = 'playing';
-      statusText.textContent = 'Your turn';
-      updateUiState();
-      drawBoard();
-      return;
-    }
-
-    // PvP match
-    const id = generateMatchId();
-    const match = {
-      id: id,
-      players: [username],
-      state: 'waiting',
-      rows: rows,
-      cols: cols,
-      mode: 'pvp',
-      difficulty: aiDifficulty,
-      created: Date.now(),
-      endedAt: null,
-      board: null,
-      turn: null,
-    };
-    matches[id] = match;
-    gameId = id;
-    currentGame = match;
-
-    initBoard();
+    if(isInMatch) return;
+    gameId = makeId();
     currentPlayer = PLAYER_RED;
     myPlayer = PLAYER_RED;
     gameState = 'waiting';
+    gameMode = modeSel.value;
 
-    statusText.textContent = 'Waiting for opponent to join...';
-    updateUiState();
+    initBoard();
+
+    // If PvP create global match entry
+    if(gameMode === 'pvp') {
+      matches[gameId] = {
+        id: gameId,
+        creatorId: currentUserId,
+        creatorName: currentUser.username,
+        rows,
+        cols,
+        mode: 'pvp',
+        status: 'waiting',
+        board: JSON.parse(JSON.stringify(board)),
+        currentTurn: currentPlayer,
+      };
+      saveMatchesToStorage();
+      updateStatus('Waiting for opponent to join...');
+    } else {
+      // AI mode: no global match created
+      gameState = 'playing';
+      myPlayer = PLAYER_RED;
+      currentPlayer = PLAYER_RED;
+      updateStatus('Your turn');
+    }
+
     drawBoard();
-    refreshMatches();
+    isInMatch = true;
+    leaveBtn.disabled = false;
+
+    updateUIForMatch();
   }
 
   function joinMatch(id) {
-    if (gameId) return; // Can't join if already in a match
-    const match = matches[id];
-    if (!match) return alert('Match not found!');
-    if (match.players.length >= 2 || match.state !== 'waiting') return alert('Match full or unavailable!');
+    if(isInMatch) return;
 
-    match.players.push(username);
-    match.state = 'playing';
-    match.turn = PLAYER_RED;
+    if(!matches[id]) return alert('Match no longer available');
+
+    const m = matches[id];
+    if(m.status !== 'waiting') return alert('Match is not available');
+
+    if(m.creatorId === currentUserId) return; // Cannot join own match
+
     gameId = id;
-    currentGame = match;
-    myPlayer = PLAYER_YELLOW;
-    rows = match.rows;
-    cols = match.cols;
-    gameMode = match.mode;
-    aiDifficulty = match.difficulty;
+    gameMode = 'pvp';
+    rows = m.rows;
+    cols = m.cols;
+    board = JSON.parse(JSON.stringify(m.board));
+    currentPlayer = m.currentTurn;
 
-    initBoard();
-    currentPlayer = PLAYER_RED;
+    myPlayer = PLAYER_YELLOW;
     gameState = 'playing';
 
-    statusText.textContent = 'Match started. Your turn: ' + (myPlayer === currentPlayer ? 'Yes' : 'No');
-    updateUiState();
+    // Update global match to started
+    matches[id].status = 'playing';
+    saveMatchesToStorage();
+
     drawBoard();
-    refreshMatches();
+    isInMatch = true;
+    leaveBtn.disabled = false;
+
+    updateStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
+
+    updateUIForMatch();
   }
 
   function leaveMatch() {
-    if (!gameId) return;
-    if (gameId === 'local_ai_match') {
-      // Local AI match, just reset
-      gameId = null;
-      currentGame = null;
-      myPlayer = PLAYER_NONE;
-      gameState = 'idle';
-      statusText.textContent = 'You left the match.';
-      updateUiState();
-      drawBoard();
-      return;
-    }
+    if(!isInMatch) return;
 
-    const match = matches[gameId];
-    if (!match) return;
-
-    // Remove player from match
-    match.players = match.players.filter(p => p !== username);
-
-    if (match.players.length === 0) {
-      // No players left, delete match
-      delete matches[gameId];
-    } else {
-      // If creator leaves, delete match (you can customize this if needed)
-      if (match.players[0] !== username) {
-        // If you're NOT creator, just leave, keep match
+    if(gameMode === 'pvp' && gameId && matches[gameId]) {
+      // Delete match if you are creator or opponent leaving
+      // If creator leaves: delete the match for all
+      // If joiner leaves: delete match or set status to waiting?
+      if(currentUserId === matches[gameId].creatorId) {
+        delete matches[gameId];
       } else {
-        // Creator left, delete match and notify players
+        // For simplicity, delete match on leave by any player
         delete matches[gameId];
       }
+      saveMatchesToStorage();
     }
 
     gameId = null;
-    currentGame = null;
-    myPlayer = PLAYER_NONE;
     gameState = 'idle';
-    statusText.textContent = 'You left the match.';
-    updateUiState();
-    drawBoard();
-    refreshMatches();
+    myPlayer = PLAYER_NONE;
+    isInMatch = false;
+    board = [];
+
+    leaveBtn.disabled = true;
+
+    updateStatus('Left the match.');
+    drawEmptyBoard();
+
+    updateUIForMatch();
+    refreshMatchesList();
   }
 
-  // UI update
-  function updateUiState() {
-    const inMatch = !!gameId;
-    createBtn.disabled = inMatch;
-    leaveBtn.disabled = !inMatch;
-    rowSel.disabled = inMatch;
-    colSel.disabled = inMatch;
-    modeSel.disabled = inMatch;
-    aiDifficultyDiv.style.display = (!inMatch && modeSel.value === 'ai') ? 'flex' : 'none';
+  function updateStatus(text) {
+    statusText.textContent = text;
   }
 
-  aiButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      aiButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      aiDifficulty = btn.dataset.level;
-    });
-  });
-
-  function updateAiDifficultyVisibility() {
-    if (modeSel.value === 'ai') {
-      aiDifficultyDiv.style.display = 'flex';
-    } else {
-      aiDifficultyDiv.style.display = 'none';
-    }
+  // Draw empty board when not in match
+  function drawEmptyBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  modeSel.addEventListener('change', () => {
-    updateAiDifficultyVisibility();
-  });
+  // Handle clicks on canvas to place piece
+  canvas.onclick = function(evt) {
+    if(gameState !== 'playing') return;
+    if(!isInMatch) return;
 
-  // --- Game Canvas Click ---
-  canvas.addEventListener('click', e => {
-    if (gameState !== 'playing' || !gameId) return;
-    if (myPlayer !== currentPlayer) {
-      statusText.textContent = 'Not your turn!';
-      return;
+    if(gameMode === 'pvp') {
+      if(currentPlayer !== myPlayer) return;
+    } else if(gameMode === 'ai') {
+      if(currentPlayer !== myPlayer) return;
     }
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const colWidth = canvas.width / cols;
-    const colClicked = Math.floor(x / colWidth);
+    const x = evt.clientX - rect.left;
+    const colClicked = Math.floor(x / 70);
 
-    if (!dropPiece(board, colClicked, currentPlayer)) {
-      statusText.textContent = 'Column full! Choose another.';
-      return;
-    }
+    if(colClicked < 0 || colClicked >= cols) return;
 
+    makeMove(colClicked);
+  };
+
+  // Make a move in the column
+  function makeMove(col) {
+    if(gameState !== 'playing') return;
+
+    const r = findLowestEmptyRow(col);
+    if(r === -1) return;
+
+    board[r][col] = currentPlayer;
     drawBoard();
 
-    if (checkWin(board, currentPlayer)) {
-      statusText.textContent = `Player ${currentPlayer === PLAYER_RED ? 'Red' : 'Yellow'} wins!`;
+    if(checkWin(currentPlayer)) {
       gameState = 'ended';
-      if (currentGame) {
-        currentGame.state = 'ended';
-        currentGame.endedAt = Date.now();
+      if(gameMode === 'pvp') {
+        updateStatus(currentPlayer === myPlayer ? "You win!" : "Opponent wins!");
+      } else {
+        updateStatus(currentPlayer === myPlayer ? "You win!" : "AI wins!");
       }
-      updateUiState();
+      leaveBtn.disabled = false;
       return;
     }
 
-    if (isBoardFull(board)) {
-      statusText.textContent = 'Draw! Board full.';
+    if(checkDraw()) {
       gameState = 'ended';
-      if (currentGame) {
-        currentGame.state = 'ended';
-        currentGame.endedAt = Date.now();
-      }
-      updateUiState();
+      updateStatus("It's a draw!");
+      leaveBtn.disabled = false;
       return;
     }
 
+    // Switch turn
     currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-    if (currentGame) currentGame.turn = currentPlayer;
 
-    if (gameMode === 'ai' && currentPlayer === PLAYER_YELLOW) {
-      statusText.textContent = 'AI is thinking...';
-      setTimeout(() => {
-        const aiCol = aiMove();
-        if (aiCol >= 0) {
-          dropPiece(board, aiCol, PLAYER_YELLOW);
-          drawBoard();
+    if(gameMode === 'pvp') {
+      updateStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
+    } else if(gameMode === 'ai') {
+      if(currentPlayer === myPlayer) {
+        updateStatus("Your turn");
+      } else {
+        updateStatus("AI's turn");
+        setTimeout(aiMove, 700);
+      }
+    }
+  }
 
-          if (checkWin(board, PLAYER_YELLOW)) {
-            statusText.textContent = 'AI (Yellow) wins!';
-            gameState = 'ended';
-            if (currentGame) {
-              currentGame.state = 'ended';
-              currentGame.endedAt = Date.now();
-            }
-            updateUiState();
-            return;
-          }
+  // Simple AI move (random)
+  function aiMove() {
+    if(gameState !== 'playing') return;
+    if(currentPlayer === myPlayer) return; // Not AI turn
 
-          if (isBoardFull(board)) {
-            statusText.textContent = 'Draw! Board full.';
-            gameState = 'ended';
-            if (currentGame) {
-              currentGame.state = 'ended';
-              currentGame.endedAt = Date.now();
-            }
-            updateUiState();
-            return;
-          }
-        }
-        currentPlayer = PLAYER_RED;
-        if (currentGame) currentGame.turn = currentPlayer;
-        statusText.textContent = 'Your turn';
-      }, 900);
+    // Find valid columns
+    const validCols = [];
+    for(let c=0;c<cols;c++) {
+      if(findLowestEmptyRow(c) !== -1) validCols.push(c);
+    }
+    if(validCols.length === 0) return;
+
+    const chosenCol = validCols[Math.floor(Math.random()*validCols.length)];
+
+    makeMove(chosenCol);
+  }
+
+  // UI updating on match start/end
+  function updateUIForMatch() {
+    if(isInMatch) {
+      createBtn.disabled = true;
+      rowSel.disabled = true;
+      colSel.disabled = true;
+      modeSel.disabled = true;
+      leaveBtn.disabled = false;
+
+      canvas.style.display = 'block';
+      statusText.style.display = 'block';
+      matchListDiv.style.display = 'none';
+      aiDifficultyDiv.style.display = gameMode === 'ai' ? 'flex' : 'none';
+
     } else {
-      statusText.textContent = currentPlayer === myPlayer ? 'Your turn' : 'Waiting for opponent move...';
+      createBtn.disabled = false;
+      rowSel.disabled = false;
+      colSel.disabled = false;
+      modeSel.disabled = false;
+      leaveBtn.disabled = true;
+
+      canvas.style.display = 'none';
+      statusText.style.display = 'block';
+      matchListDiv.style.display = 'block';
+      aiDifficultyDiv.style.display = 'none';
     }
+
+    if(gameMode === 'pvp') {
+      refreshMatchesList();
+      matchListDiv.style.display = 'block';
+    } else {
+      matchListDiv.style.display = 'none';
+    }
+  }
+
+  // Populate rows and cols selects
+  function populateRowsCols() {
+    rowSel.innerHTML = '';
+    colSel.innerHTML = '';
+    for(let r=4; r<=10; r++) {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      if(r === rows) opt.selected = true;
+      rowSel.appendChild(opt);
+    }
+    for(let c=4; c<=10; c++) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if(c === cols) opt.selected = true;
+      colSel.appendChild(opt);
+    }
+  }
+
+  // Handle difficulty buttons
+  aiButtons.forEach(btn => {
+    btn.onclick = () => {
+      aiButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      aiDifficulty = btn.dataset.level;
+    };
   });
 
-  // --- Button Listeners ---
-  createBtn.addEventListener('click', () => {
+  // Event handlers
+  usernameInput.addEventListener('input', () => {
+    usernameSubmit.disabled = usernameInput.value.trim().length < 2;
+  });
+
+  usernameSubmit.onclick = () => {
+    currentUser.username = usernameInput.value.trim();
+    if(currentUser.username.length < 2) return;
+    currentUserId = 'user_' + Math.random().toString(36).slice(2, 10); // random id for demo
+
+    usernamePromptContainer.style.display = 'none';
+    header.style.display = 'flex';
+    menu.style.display = 'flex';
+    statusText.style.display = 'block';
+    matchListDiv.style.display = 'block';
+
+    updateUserProfile();
+
+    populateRowsCols();
+    updateStatus('Click "Create Game" to start playing!');
+
+    refreshMatchesList();
+  };
+
+  createBtn.onclick = () => {
+    rows = parseInt(rowSel.value);
+    cols = parseInt(colSel.value);
+    gameMode = modeSel.value;
+    aiDifficultyDiv.style.display = gameMode === 'ai' ? 'flex' : 'none';
+
     createMatch();
-  });
+  };
 
-  leaveBtn.addEventListener('click', () => {
+  leaveBtn.onclick = () => {
     leaveMatch();
-  });
+  };
 
-  refreshMatchesBtn.addEventListener('click', () => {
-    refreshMatches();
-  });
+  // Listen for localStorage changes for global matches syncing
+  window.addEventListener('storage', e => {
+    if(e.key === STORAGE_KEY) {
+      const data = loadGlobalMatches();
+      Object.assign(matches, data);
+      refreshMatchesList();
 
-  // Initialize dropdowns and UI
-  fillDropdown(rowSel, 4, 10, 6);
-  fillDropdown(colSel, 4, 10, 7);
-  updateAiDifficultyVisibility();
-  updateUiState();
-
-  // Initialize empty board
-  initBoard();
-  drawBoard();
-
-  // Disable form submit on enter inside username input
-  usernameInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !usernameSubmit.disabled) {
-      usernameSubmit.click();
-      e.preventDefault();
+      // If current match was deleted, force leave
+      if(isInMatch && gameMode === 'pvp' && gameId && !matches[gameId]) {
+        alert("Your match was ended.");
+        leaveMatch();
+      }
     }
   });
-});
+
+  // Refresh matches every 5 seconds to keep updated
+  setInterval(() => {
+    if(gameMode === 'pvp' && !isInMatch) {
+      const data = loadGlobalMatches();
+      Object.assign(matches, data);
+      refreshMatchesList();
+    }
+  }, 5000);
+
+})();
 </script>
 
 </body>
