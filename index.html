@@ -244,6 +244,69 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentGame = null;
   let aiDifficulty = 'normal';
   let matches = {}; // id -> game object
+  let discordUser = null;
+
+  // Initialize Discord SDK
+  async function initDiscord() {
+    if (typeof DiscordSDK !== "undefined") {
+      try {
+        await DiscordSDK.ready();
+        
+        // Get current user info
+        const auth = await DiscordSDK.commands.authenticate({
+          access_token: await DiscordSDK.commands.authorize({
+            client_id: DiscordSDK.clientId,
+            response_type: "code",
+            state: "",
+            prompt: "none",
+            scope: ["identify", "guilds"]
+          })
+        });
+        
+        discordUser = auth.user;
+        console.log("Discord user:", discordUser);
+        
+        // Set up activity participants sync
+        DiscordSDK.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', (data) => {
+          console.log("Participants updated:", data);
+          // Sync matches with participants
+          syncMatchesWithParticipants(data.participants);
+        });
+        
+        renderMatchList();
+      } catch (error) {
+        console.error("Discord initialization failed:", error);
+        // Fallback to local user
+        discordUser = {
+          id: 'local_' + Math.random().toString(36).substr(2, 9),
+          username: 'Local Player',
+          avatar: null
+        };
+      }
+    } else {
+      // Fallback for non-Discord environment
+      discordUser = {
+        id: 'local_' + Math.random().toString(36).substr(2, 9),
+        username: 'Local Player',
+        avatar: null
+      };
+    }
+  }
+
+  function syncMatchesWithParticipants(participants) {
+    // Update matches based on active participants
+    // This helps sync matches across different users in the activity
+    const participantIds = participants.map(p => p.id);
+    
+    // Remove matches from users who are no longer in the activity
+    Object.keys(matches).forEach(matchId => {
+      if (!participantIds.includes(matches[matchId].ownerId)) {
+        delete matches[matchId];
+      }
+    });
+    
+    renderMatchList();
+  }
 
   function setupUI() {
     // Populate dropdown options
@@ -358,8 +421,10 @@ document.addEventListener("DOMContentLoaded", () => {
       mode: gameMode,
       difficulty: aiDifficulty,
       state: gameMode === 'ai' ? 'playing' : 'waiting',
-      ownerId: 'local_player',
-      players: ['local_player'],
+      ownerId: discordUser ? discordUser.id : 'local_player',
+      ownerName: discordUser ? discordUser.username : 'Local Player',
+      ownerAvatar: discordUser ? discordUser.avatar : null,
+      players: [discordUser ? discordUser.id : 'local_player'],
     };
 
     myPlayer = PLAYER_RED;
@@ -560,7 +625,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderMatchList() {
     matchesContainer.innerHTML = '';
 
-    const visibleMatches = Object.values(matches).filter(m => m.ownerId !== 'local_player');
+    const userId = discordUser ? discordUser.id : 'local_player';
+    const visibleMatches = Object.values(matches).filter(m => m.ownerId !== userId);
 
     if(visibleMatches.length === 0) {
       matchesContainer.textContent = "No matches available.";
@@ -573,7 +639,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const playerInfo = document.createElement('div');
       playerInfo.className = 'playerInfo';
-      playerInfo.textContent = `${match.rows}x${match.cols} - ${match.mode.toUpperCase()}`;
+      
+      // Add avatar if available
+      if(match.ownerAvatar) {
+        const img = document.createElement('img');
+        img.src = `https://cdn.discordapp.com/avatars/${match.ownerId}/${match.ownerAvatar}.png?size=64`;
+        img.onerror = () => { 
+          img.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(match.ownerId) % 5}.png`; 
+        };
+        playerInfo.appendChild(img);
+      }
+
+      const matchDetails = document.createElement('div');
+      matchDetails.innerHTML = `
+        <div style="font-weight: bold;">${match.ownerName || 'Unknown Player'}</div>
+        <div style="font-size: 0.9em; opacity: 0.8;">${match.rows}×${match.cols} • ${match.mode.toUpperCase()}</div>
+      `;
+      playerInfo.appendChild(matchDetails);
 
       div.appendChild(playerInfo);
 
@@ -593,8 +675,77 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function broadcast(msg) {
-    // Simulate message broadcasting
+    // For Discord activities, use both local storage and Discord's activity system
+    if (typeof DiscordSDK !== "undefined") {
+      try {
+        // Update Discord activity status
+        DiscordSDK.commands.setActivity({
+          activity: {
+            type: 0, // Playing
+            details: `Connect Four ${rows}×${cols}`,
+            state: gameState === 'playing' ? 'In Game' : gameState === 'waiting' ? 'Waiting' : 'Menu',
+            party: {
+              id: gameId || 'lobby',
+              size: [Object.keys(matches).length + 1, 10]
+            }
+          }
+        });
+
+        // Send message to other participants via Discord's messaging
+        DiscordSDK.commands.sendActivityMessage({
+          type: 'CUSTOM',
+          data: msg
+        });
+        
+      } catch (error) {
+        console.error("Discord activity update failed:", error);
+      }
+    }
+    
+    // Store matches in localStorage for persistence
+    const existingMatches = JSON.parse(localStorage.getItem('connectFourMatches') || '{}');
+    
+    if (msg.type === 'create') {
+      existingMatches[msg.game.id] = msg.game;
+      localStorage.setItem('connectFourMatches', JSON.stringify(existingMatches));
+    } else if (msg.type === 'leave' && msg.ownerLeft) {
+      delete existingMatches[msg.gameId];
+      localStorage.setItem('connectFourMatches', JSON.stringify(existingMatches));
+    }
+    
+    // Broadcast to other tabs/instances
     window.dispatchEvent(new CustomEvent('gameMessage', {detail: msg}));
+  }
+
+  // Listen for Discord activity messages
+  if (typeof DiscordSDK !== "undefined") {
+    DiscordSDK.subscribe('ACTIVITY_MESSAGE', (data) => {
+      console.log("Received activity message:", data);
+      if (data.type === 'CUSTOM' && data.data) {
+        window.dispatchEvent(new CustomEvent('gameMessage', {detail: data.data}));
+      }
+    });
+  }
+
+  // Listen for localStorage changes (cross-tab communication)
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'connectFourMatches') {
+      const newMatches = JSON.parse(e.newValue || '{}');
+      matches = newMatches;
+      renderMatchList();
+    }
+  });
+
+  // Load existing matches on startup
+  function loadMatches() {
+    try {
+      const existingMatches = JSON.parse(localStorage.getItem('connectFourMatches') || '{}');
+      matches = existingMatches;
+      renderMatchList();
+    } catch (error) {
+      console.error("Failed to load matches:", error);
+      matches = {};
+    }
   }
 
   window.addEventListener('gameMessage', e => {
@@ -655,9 +806,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize the game
-  setupUI();
-  initBoard();
-  updateUIButtons();
+  initDiscord().then(() => {
+    setupUI();
+    initBoard();
+    updateUIButtons();
+    loadMatches();
+  });
 });
 </script>
 
