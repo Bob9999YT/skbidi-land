@@ -3,26 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <title>Connect Four</title>
-  <script src="https://discord.com/assets/embedded-app-sdk.js"></script>
   <style>
-    :root {
-      --bg-color: #1e1e2f;
-      --board-color: #29293d;
-      --highlight: #ffaa00;
-      --red: #f44336;
-      --yellow: #fdd835;
-    }
-    body {
-      background: var(--bg-color);
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #1e1e2f;
       color: #fff;
       font-family: 'Segoe UI', sans-serif;
       text-align: center;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
       padding: 20px;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
     h1 {
       margin-bottom: 10px;
       font-size: 32px;
-      color: var(--highlight);
+      color: #ffaa00;
+    }
+    .menu, #matchList, canvas, #status {
+      z-index: 1;
     }
     .menu {
       margin-bottom: 15px;
@@ -31,21 +37,20 @@
       margin: 5px;
       padding: 10px 18px;
       font-size: 16px;
-      background: var(--board-color);
+      background: #29293d;
       color: white;
-      border: 2px solid var(--highlight);
+      border: 2px solid #ffaa00;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 3px 0 var(--highlight);
-      user-select: none;
+      box-shadow: 0 3px 0 #ffaa00;
     }
     button:hover, select:hover {
       transform: scale(1.05);
     }
     button:active {
       transform: scale(0.97);
-      box-shadow: 0 1px 0 var(--highlight);
+      box-shadow: 0 1px 0 #ffaa00;
     }
     #aiDifficultyButtons {
       margin-top: 10px;
@@ -56,38 +61,31 @@
       font-size: 14px;
       border-radius: 4px;
       margin: 0 5px;
-      border: 1.5px solid var(--highlight);
-      background: var(--board-color);
+      border: 1.5px solid #ffaa00;
+      background: #29293d;
       color: white;
-      box-shadow: 0 2px 0 var(--highlight);
-      transition: all 0.2s ease;
-      cursor: pointer;
-      user-select: none;
+      box-shadow: 0 2px 0 #ffaa00;
     }
     #aiDifficultyButtons button:hover {
       transform: scale(1.1);
-      background: var(--highlight);
+      background: #ffaa00;
       color: #111;
     }
     #aiDifficultyButtons button.active {
-      background: var(--highlight);
+      background: #ffaa00;
       color: #111;
-      box-shadow: none;
-      transform: scale(1.1);
     }
     canvas {
-      background: var(--board-color);
+      background: #29293d;
       margin: 20px auto;
       display: block;
       border-radius: 12px;
       box-shadow: 0 0 10px #0008;
     }
     #status {
-      font-size: 20px;
+      font-size: 18px;
       margin-top: 10px;
       font-weight: bold;
-      user-select: none;
-      min-height: 28px;
     }
     #matchList {
       margin-top: 15px;
@@ -97,47 +95,52 @@
       margin-right: auto;
       font-size: 16px;
       color: white;
-      user-select: none;
     }
     #matchList h3 {
       margin-bottom: 8px;
-      color: var(--highlight);
+      color: #ffaa00;
     }
     .matchItem {
       margin-bottom: 8px;
       padding: 6px 10px;
-      background: var(--board-color);
+      background: #29293d;
       border-radius: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 3px 0 var(--highlight);
+      box-shadow: 0 3px 0 #ffaa00;
     }
     .matchItem button {
       padding: 4px 10px;
       font-size: 14px;
       border-radius: 4px;
-      cursor: pointer;
-      background: var(--highlight);
+      background: #ffaa00;
       color: #111;
-      border: none;
-      box-shadow: none;
-      transition: transform 0.15s ease;
-      user-select: none;
     }
-    .matchItem button:hover:not(:disabled) {
+    .matchItem button:hover {
       transform: scale(1.1);
     }
-    .matchItem button:disabled {
-      background: #555;
-      cursor: not-allowed;
-      color: #ccc;
-      transform: none !important;
+    #userDisplay {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #userDisplay img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
     }
   </style>
+  <script src="https://discord.com/assets/embedded-app-sdk.js"></script>
 </head>
 <body>
   <h1>Connect Four</h1>
+
+  <div id="userDisplay" style="display: none;">
+    <img id="userAvatar" src="" alt="Avatar" />
+    <span id="userName"></span>
+  </div>
 
   <div class="menu">
     Rows:
@@ -170,446 +173,189 @@
     <div id="matchesContainer">No matches available.</div>
   </div>
 
-<script>
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const statusText = document.getElementById('status');
-  const matchesContainer = document.getElementById('matchesContainer');
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const matchesContainer = document.getElementById('matchesContainer');
+    const userNameElem = document.getElementById('userName');
+    const userAvatarElem = document.getElementById('userAvatar');
+    const userDisplay = document.getElementById('userDisplay');
 
-  const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
+    const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
+    let rows = 6, cols = 7;
+    let board = [];
+    let currentPlayer = PLAYER_RED;
+    let gameState = 'idle';
+    let myPlayer = PLAYER_NONE;
+    let gameId = null;
+    let gameMode = 'pvp';
+    let currentGame = null;
+    let aiDifficulty = 'normal';
+    let matches = {};
+    let myUser = null;
 
-  let rows = 6, cols = 7;
-  let board = [];
-  let currentPlayer = PLAYER_RED;
-  let gameState = 'idle';
-  let myPlayer = PLAYER_NONE;
-  let gameId = null;
-  let gameMode = 'pvp';
-  let currentGame = null;
-  let aiDifficulty = 'normal';
-
-  let matches = {};
-  let myUserId = Math.random().toString(36).substr(2, 8); // Unique id for this player instance
-
-  function setupUI() {
-    const rowSel = document.getElementById('rows');
-    const colSel = document.getElementById('cols');
-    for (let i = 4; i <= 10; i++) {
-      rowSel.add(new Option(i, i));
-      colSel.add(new Option(i, i));
-    }
-    rowSel.value = rows;
-    colSel.value = cols;
-    rowSel.onchange = () => { rows = +rowSel.value; };
-    colSel.onchange = () => { cols = +colSel.value; };
-    const modeSel = document.getElementById('mode');
-    modeSel.onchange = () => {
-      gameMode = modeSel.value;
-      toggleAIDifficulty(gameMode === 'ai');
-    };
-    document.getElementById('create').onclick = onCreate;
-    document.getElementById('leave').onclick = onLeave;
-    canvas.addEventListener('click', onClick);
-
-    const aiButtons = document.querySelectorAll('#aiDifficultyButtons button');
-    aiButtons.forEach(btn => {
-      btn.onclick = () => {
-        aiButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        aiDifficulty = btn.getAttribute('data-level');
-        updateStatus(`AI difficulty set to ${aiDifficulty}`);
+    function setupUI() {
+      const rowSel = document.getElementById('rows');
+      const colSel = document.getElementById('cols');
+      for (let i = 4; i <= 10; i++) {
+        rowSel.add(new Option(i, i));
+        colSel.add(new Option(i, i));
+      }
+      rowSel.value = rows;
+      colSel.value = cols;
+      rowSel.onchange = () => { rows = +rowSel.value; };
+      colSel.onchange = () => { cols = +colSel.value; };
+      const modeSel = document.getElementById('mode');
+      modeSel.onchange = () => {
+        gameMode = modeSel.value;
+        toggleAIDifficulty(gameMode === 'ai');
       };
-    });
+      document.getElementById('create').onclick = onCreate;
+      document.getElementById('leave').onclick = onLeave;
+      canvas.addEventListener('click', onClick);
 
-    updateUIButtons();
-    renderMatchList();
-  }
+      document.querySelectorAll('#aiDifficultyButtons button').forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll('#aiDifficultyButtons button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          aiDifficulty = btn.getAttribute('data-level');
+          updateStatus(`AI difficulty set to ${aiDifficulty}`);
+        };
+      });
 
-  function toggleAIDifficulty(show) {
-    const div = document.getElementById('aiDifficultyButtons');
-    div.style.display = show ? 'block' : 'none';
-  }
-
-  function onCreate() {
-    rows = +document.getElementById('rows').value;
-    cols = +document.getElementById('cols').value;
-    initBoard();
-    gameId = Math.random().toString(36).substr(2, 8);
-    currentGame = { 
-      id: gameId, rows, cols, mode: gameMode, difficulty: aiDifficulty, state: 'waiting', 
-      ownerId: myUserId, players: [myUserId] 
-    };
-    myPlayer = PLAYER_RED;
-    currentPlayer = PLAYER_RED;
-
-    if (gameMode === 'ai') {
-      currentGame.state = 'playing';
-      gameState = 'playing';
-      updateStatus("Your turn!");
-      toggleMatchList(false);
-      updateUIButtons();
-    } else {
-      gameState = 'waiting';
-      updateStatus("Waiting for opponent...");
-      toggleMatchList(true);
-      addMatch(currentGame);
+      renderMatchList();
     }
 
-    broadcast({ type: 'create', game: currentGame });
-  }
-
-  function onJoinGame(id) {
-    const match = matches[id];
-    if (!match) {
-      updateStatus("Match not found.");
-      return;
+    function toggleAIDifficulty(show) {
+      document.getElementById('aiDifficultyButtons').style.display = show ? 'block' : 'none';
     }
-    if (match.ownerId === myUserId) {
-      updateStatus("Cannot join your own match.");
-      return;
-    }
-    if (match.players.includes(myUserId)) {
-      updateStatus("Already joined this match.");
-      return;
-    }
-    currentGame = match;
-    rows = currentGame.rows;
-    cols = currentGame.cols;
-    gameId = currentGame.id;
-    myPlayer = PLAYER_YELLOW;
-    currentPlayer = PLAYER_RED;
-    initBoard();
-    gameState = 'playing';
-    updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-    currentGame.players.push(myUserId);
-    currentGame.state = 'playing';
-    broadcast({ type: 'join', gameId, playerId: myUserId });
-    toggleMatchList(false);
-    updateUIButtons();
 
-    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-      setTimeout(aiMove, 500);
-    }
-  }
-
-  function onLeave() {
-    if (!currentGame) return;
-
-    if (currentGame.ownerId === myUserId) {
-      broadcast({ type: 'leave', gameId, ownerLeft: true });
-      deleteMatch(gameId);
-      resetGame();
-      toggleMatchList(true);
-    } else {
-      broadcast({ type: 'leave', gameId, ownerLeft: false, playerId: myUserId });
-      // Inform forfeited and reset current player to waiting state
-      updateStatus("Player forfeited. Waiting for another player...");
-      currentGame.state = 'waiting';
-      currentGame.players = [currentGame.ownerId];
-      gameState = 'waiting';
+    function onCreate() {
+      rows = +document.getElementById('rows').value;
+      cols = +document.getElementById('cols').value;
+      gameId = Math.random().toString(36).substring(2, 10);
+      initBoard();
+      currentGame = {
+        id: gameId,
+        rows,
+        cols,
+        mode: gameMode,
+        difficulty: aiDifficulty,
+        state: gameMode === 'ai' ? 'private' : 'waiting',
+        owner: myUser?.id || 'me'
+      };
+      matches[gameId] = currentGame;
+      gameState = gameMode === 'ai' ? 'playing' : 'waiting';
       myPlayer = PLAYER_RED;
       currentPlayer = PLAYER_RED;
-      initBoard();
-      toggleMatchList(true);
+      renderMatchList();
+      updateStatus(gameMode === 'ai' ? "Your turn!" : "Waiting for opponent...");
       updateUIButtons();
     }
-  }
 
-  function resetGame() {
-    gameState = 'idle';
-    currentGame = null;
-    board = [];
-    myPlayer = PLAYER_NONE;
-    gameId = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    updateStatus("Game ended.");
-    updateUIButtons();
-  }
-
-  function initBoard() {
-    board = Array.from({ length: rows }, () => Array(cols).fill(PLAYER_NONE));
-    canvas.width = cols * 70;
-    canvas.height = rows * 70;
-    drawBoard();
-  }
-
-  function drawBoard() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
-                        board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
-        ctx.beginPath();
-        ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
-        ctx.fill();
-      }
+    function onJoinGame(id) {
+      currentGame = matches[id];
+      gameId = id;
+      rows = currentGame.rows;
+      cols = currentGame.cols;
+      gameState = 'playing';
+      myPlayer = PLAYER_YELLOW;
+      currentPlayer = PLAYER_RED;
+      initBoard();
+      updateStatus("Joined match. Opponent's turn...");
+      updateUIButtons();
     }
-  }
 
-  function onClick(e) {
-    if (gameState !== 'playing' || myPlayer !== currentPlayer) return;
-    const col = Math.floor(e.offsetX / 70);
-    if (col < 0 || col >= cols) return;
-
-    for (let y = rows - 1; y >= 0; y--) {
-      if (board[y][col] === PLAYER_NONE) {
-        board[y][col] = myPlayer;
-        drawBoard();
-        broadcast({ type: 'move', col, row: y, player: myPlayer, gameId });
-
-        if (checkWin()) {
-          gameState = 'ended';
-          updateStatus("You win!", 'win');
-          broadcast({ type: 'end', winner: myPlayer, gameId });
-        } else if (isBoardFull()) {
-          gameState = 'ended';
-          updateStatus("Draw!", 'draw');
-          broadcast({ type: 'end', winner: PLAYER_NONE, gameId });
-        } else {
-          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-
-          if (gameMode === 'ai' && currentPlayer !== myPlayer) {
-            setTimeout(aiMove, 500);
-          }
+    function onLeave() {
+      if (currentGame) {
+        if (currentGame.owner === myUser?.id || currentGame.owner === 'me') {
+          delete matches[gameId];
         }
-        break;
-      }
-    }
-  }
-
-  function isBoardFull() {
-    return board.every(row => row.every(cell => cell !== PLAYER_NONE));
-  }
-
-  function aiMove() {
-    if (gameState !== 'playing' || currentPlayer !== (myPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED)) return;
-
-    let col;
-    if (aiDifficulty === 'easy') {
-      const validCols = [];
-      for (let c = 0; c < cols; c++) {
-        if (board[0][c] === PLAYER_NONE) validCols.push(c);
-      }
-      col = validCols[Math.floor(Math.random() * validCols.length)];
-    } else {
-      col = findBestMove();
-    }
-
-    for (let y = rows - 1; y >= 0; y--) {
-      if (board[y][col] === PLAYER_NONE) {
-        board[y][col] = currentPlayer;
-        drawBoard();
-        broadcast({ type: 'move', col, row: y, player: currentPlayer, gameId });
-
-        if (checkWin()) {
-          gameState = 'ended';
-          updateStatus("You lose.", 'lose');
-          broadcast({ type: 'end', winner: currentPlayer, gameId });
-        } else if (isBoardFull()) {
-          gameState = 'ended';
-          updateStatus("Draw!", 'draw');
-          broadcast({ type: 'end', winner: PLAYER_NONE, gameId });
-        } else {
-          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-        }
-        break;
-      }
-    }
-  }
-
-  function findBestMove() {
-    const validCols = [];
-    for (let c = 0; c < cols; c++) {
-      if (board[0][c] === PLAYER_NONE) validCols.push(c);
-    }
-    return validCols[Math.floor(Math.random() * validCols.length)];
-  }
-
-  function checkWin() {
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const player = board[y][x];
-        if (player === PLAYER_NONE) continue;
-
-        if (x + 3 < cols &&
-          player === board[y][x + 1] &&
-          player === board[y][x + 2] &&
-          player === board[y][x + 3]) return true;
-
-        if (y + 3 < rows &&
-          player === board[y + 1][x] &&
-          player === board[y + 2][x] &&
-          player === board[y + 3][x]) return true;
-
-        if (x + 3 < cols && y + 3 < rows &&
-          player === board[y + 1][x + 1] &&
-          player === board[y + 2][x + 2] &&
-          player === board[y + 3][x + 3]) return true;
-
-        if (x + 3 < cols && y - 3 >= 0 &&
-          player === board[y - 1][x + 1] &&
-          player === board[y - 2][x + 2] &&
-          player === board[y - 3][x + 3]) return true;
-      }
-    }
-    return false;
-  }
-
-  function updateStatus(text, result) {
-    statusText.textContent = text;
-    if (result === 'win') {
-      statusText.style.color = "#4CAF50";
-    } else if (result === 'lose') {
-      statusText.style.color = "#F44336";
-    } else if (result === 'draw') {
-      statusText.style.color = "#FF9800";
-    } else {
-      statusText.style.color = "#FFFFFF";
-    }
-  }
-
-  function updateUIButtons() {
-    document.getElementById('leave').disabled = !(gameState === 'playing' || gameState === 'waiting' || gameState === 'ended');
-    document.getElementById('create').disabled = (gameState === 'playing' || gameState === 'waiting');
-  }
-
-  function addMatch(match) {
-    matches[match.id] = match;
-    renderMatchList();
-  }
-
-  function deleteMatch(id) {
-    delete matches[id];
-    renderMatchList();
-  }
-
-  function renderMatchList() {
-    const availableMatches = Object.values(matches).filter(m => m.state === 'waiting');
-    if (availableMatches.length === 0) {
-      matchesContainer.textContent = "No matches available.";
-      return;
-    }
-    matchesContainer.innerHTML = "";
-    availableMatches.forEach(m => {
-      const div = document.createElement('div');
-      div.className = "matchItem";
-      div.innerHTML = `
-        <span>Match ${m.id} (${m.rows}x${m.cols}) Mode: ${m.mode}</span>
-        <button>Join</button>
-      `;
-      const btn = div.querySelector('button');
-      if (m.ownerId === myUserId) {
-        btn.disabled = true;
-        btn.textContent = "Your Match";
-      } else {
-        btn.disabled = false;
-        btn.textContent = "Join";
-        btn.onclick = () => onJoinGame(m.id);
-      }
-      matchesContainer.appendChild(div);
-    });
-  }
-
-  function toggleMatchList(show) {
-    document.getElementById('matchList').style.display = show ? 'block' : 'none';
-  }
-
-  function broadcast(data) {
-    if (typeof DiscordSDK !== "undefined" && DiscordSDK.activity) {
-      DiscordSDK.activity.broadcast(data);
-    } else {
-      console.log("Broadcast:", data);
-    }
-  }
-
-  function handleEvent(data) {
-    switch(data.type) {
-      case 'create':
-        addMatch(data.game);
-        break;
-      case 'join':
-        if (matches[data.gameId]) {
-          matches[data.gameId].state = 'playing';
-          if (!matches[data.gameId].players.includes(data.playerId)) {
-            matches[data.gameId].players.push(data.playerId);
-          }
-        }
-        if (data.gameId === gameId && data.playerId !== myUserId) {
-          gameState = 'playing';
-          updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          toggleMatchList(false);
-          updateUIButtons();
-        }
+        gameId = null;
+        gameState = 'idle';
+        myPlayer = PLAYER_NONE;
+        currentGame = null;
+        board = [];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         renderMatchList();
-        break;
-      case 'move':
-        if (data.gameId === gameId && data.player !== myPlayer) {
-          board[data.row][data.col] = data.player;
+        updateStatus("You left the match.");
+        updateUIButtons();
+      }
+    }
+
+    function initBoard() {
+      board = Array.from({ length: rows }, () => Array(cols).fill(PLAYER_NONE));
+      canvas.width = cols * 70;
+      canvas.height = rows * 70;
+      drawBoard();
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          ctx.fillStyle = board[y][x] === PLAYER_RED ? "#f44336" :
+                          board[y][x] === PLAYER_YELLOW ? "#fdd835" : "white";
+          ctx.beginPath();
+          ctx.arc(35 + x * 70, 35 + y * 70, 30, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+
+    function onClick(e) {
+      if (gameState !== 'playing' || myPlayer !== currentPlayer) return;
+      const col = Math.floor(e.offsetX / 70);
+      if (col < 0 || col >= cols) return;
+      for (let y = rows - 1; y >= 0; y--) {
+        if (board[y][col] === PLAYER_NONE) {
+          board[y][col] = myPlayer;
           drawBoard();
-
-          if (checkWin()) {
-            gameState = 'ended';
-            updateStatus("You lose.", 'lose');
-            updateUIButtons();
-          } else if (isBoardFull()) {
-            gameState = 'ended';
-            updateStatus("Draw!", 'draw');
-            updateUIButtons();
-          } else {
-            currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-            updateStatus(currentPlayer === myPlayer ? "Your turn!" : "Opponent's turn...");
-          }
+          currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+          updateStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
+          break;
         }
-        break;
-      case 'end':
-        if (data.gameId === gameId) {
-          gameState = 'ended';
-          updateStatus(data.winner === myPlayer ? "You win!" : "You lose.", data.winner === myPlayer ? 'win' : 'lose');
-          updateUIButtons();
-          toggleMatchList(true);
-        }
-        break;
-      case 'leave':
-        if (data.ownerLeft) {
-          deleteMatch(data.gameId);
-          if (gameId === data.gameId) {
-            resetGame();
-            toggleMatchList(true);
-          }
-        } else {
-          if (matches[data.gameId]) {
-            matches[data.gameId].state = 'waiting';
-            matches[data.gameId].players = [matches[data.gameId].ownerId];
-          }
-          if (gameId === data.gameId) {
-            updateStatus("Player forfeited. Waiting for another player...");
-            gameState = 'waiting';
-            myPlayer = PLAYER_RED;
-            currentPlayer = PLAYER_RED;
-            initBoard();
-            toggleMatchList(true);
-            updateUIButtons();
-          }
-          renderMatchList();
-        }
-        break;
+      }
     }
-  }
 
-  function setup() {
-    setupUI();
-    if (typeof DiscordSDK !== "undefined") {
-      DiscordSDK.ready().then(() => {
-        DiscordSDK.activity.on('broadcast', handleEvent);
+    function updateStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function updateUIButtons() {
+      document.getElementById('leave').disabled = gameState !== 'playing' && gameState !== 'waiting';
+      document.getElementById('create').disabled = gameState === 'playing' || gameState === 'waiting';
+    }
+
+    function renderMatchList() {
+      const waitingMatches = Object.values(matches).filter(m => m.state === 'waiting' && m.owner !== myUser?.id && m.owner !== 'me');
+      if (waitingMatches.length === 0) {
+        matchesContainer.textContent = "No matches available.";
+        return;
+      }
+      matchesContainer.innerHTML = "";
+      waitingMatches.forEach(match => {
+        const div = document.createElement('div');
+        div.className = "matchItem";
+        div.innerHTML = `<span>Match ${match.id} (${match.rows}x${match.cols})</span><button>Join</button>`;
+        div.querySelector('button').onclick = () => onJoinGame(match.id);
+        matchesContainer.appendChild(div);
       });
-    } else {
-      updateStatus("skibidi sigma");
     }
-  }
 
-  setup();
-</script>
+    setupUI();
+
+    if (window.DiscordSDK) {
+      DiscordSDK.ready().then(() => {
+        DiscordSDK.user.getCurrentUser().then(user => {
+          myUser = user;
+          userNameElem.textContent = user.username;
+          userAvatarElem.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
+          userDisplay.style.display = 'flex';
+        });
+      });
+    }
+  </script>
 </body>
 </html>
