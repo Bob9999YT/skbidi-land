@@ -141,7 +141,6 @@
     font-weight: 600;
     min-height: 30px;
   }
-  /* Hide everything except username prompt initially */
   .hide {
     display: none !important;
   }
@@ -149,7 +148,6 @@
 </head>
 <body>
 
-<!-- Username prompt -->
 <div id="usernamePromptContainer" style="max-width: 400px; width: 100%;">
   <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
   <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 2px solid #ffaa00; border-radius: 6px; background:#29293d; color:white;" />
@@ -158,7 +156,6 @@
   <button id="usernameSubmit" disabled style="width: 100%;">Start Playing</button>
 </div>
 
-<!-- Header -->
 <div class="header hide">
   <h1>Connect Four</h1>
   <div class="user-profile">
@@ -167,7 +164,6 @@
   </div>
 </div>
 
-<!-- Menu -->
 <div class="menu hide" style="max-width: 600px; width: 100%; margin-top: 10px; gap: 12px; display: flex; flex-wrap: wrap; align-items: center;">
   <label style="color: #ffaa00; font-weight: 600;">Rows:
     <select id="rows"></select>
@@ -185,7 +181,6 @@
   <button id="leave" disabled>Leave Game</button>
 </div>
 
-<!-- AI difficulty -->
 <div id="aiDifficultyButtons" class="hide" style="max-width: 600px; width: 100%; justify-content: center; gap: 8px;">
   <button data-level="easy">Easy</button>
   <button data-level="normal" class="active">Normal</button>
@@ -194,13 +189,10 @@
   <button data-level="impossible">Impossible</button>
 </div>
 
-<!-- Canvas -->
 <canvas id="gameCanvas" width="490" height="420" class="hide"></canvas>
 
-<!-- Status -->
 <div id="status" class="hide"></div>
 
-<!-- Match List -->
 <div id="matchList" class="hide" style="max-width: 600px; width: 100%; margin-top: 10px;">
   <h3 style="color:#ffaa00; text-align:center;">Available Matches</h3>
   <button id="refreshMatchesBtn">Refresh Matches</button>
@@ -212,12 +204,11 @@
 <script>
 (() => {
   const PLAYER_NONE=0, PLAYER_RED=1, PLAYER_YELLOW=2;
-
   let currentUser = { username: null, avatarUrl: null, id: null };
   let rows = 6, cols = 7;
   let board = [];
   let currentPlayer = PLAYER_RED;
-  let gameState = 'idle'; // idle, waiting, playing, ended
+  let gameState = 'idle';
   let myPlayer = PLAYER_NONE;
   let gameId = null;
   let gameMode = 'pvp';
@@ -227,7 +218,6 @@
   const STORAGE_KEY = 'connect_four_global_matches';
   const matches = {};
 
-  // DOM Elements
   const usernamePrompt = document.getElementById('usernamePromptContainer');
   const usernameInput = document.getElementById('usernameInput');
   const avatarUrlInput = document.getElementById('avatarUrlInput');
@@ -250,7 +240,6 @@
   const matchesContainer = document.getElementById('matchesContainer');
   const refreshBtn = document.getElementById('refreshMatchesBtn');
 
-  // Utilities
   function getAvatarColor(name) {
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -280,7 +269,10 @@
   }
 
   function initBoard() {
-    board = Array.from({length: rows}, () => Array(cols).fill(PLAYER_NONE));
+    board = [];
+    for(let r=0;r<rows;r++) {
+      board.push(Array(cols).fill(PLAYER_NONE));
+    }
     updateCanvasSize();
   }
 
@@ -354,7 +346,6 @@
     return board[0].every(cell => cell !== PLAYER_NONE);
   }
 
-  // Local storage matches helpers
   function loadGlobalMatches() {
     let d = localStorage.getItem(STORAGE_KEY);
     if (!d) return {};
@@ -370,7 +361,6 @@
     window.dispatchEvent(new Event('storage'));
   }
 
-  // Refresh and render match list
   function refreshMatchesList() {
     matchesContainer.innerHTML = '';
     let any = false;
@@ -433,7 +423,6 @@
 
   function updateUIForMatch() {
     if (isInMatch) {
-      // Hide matches list and create button when in match
       matchListDiv.classList.add('hide');
       createBtn.disabled = true;
       leaveBtn.disabled = false;
@@ -443,7 +432,6 @@
       canvas.classList.remove('hide');
       statusText.classList.remove('hide');
     } else {
-      // Show matches list and create button when not in match
       matchListDiv.classList.remove('hide');
       createBtn.disabled = false;
       leaveBtn.disabled = true;
@@ -461,8 +449,8 @@
       const img = document.createElement('img');
       img.src = avatarUrl;
       img.alt = 'Player Avatar';
-      img.style.width = '24px';
-      img.style.height = '24px';
+      img.style.width = '20px';
+      img.style.height = '20px';
       img.style.borderRadius = '50%';
       img.style.verticalAlign = 'middle';
       img.style.marginRight = '8px';
@@ -489,7 +477,7 @@
 
     matches[gameId] = {
       id: gameId,
-      board,
+      board: JSON.parse(JSON.stringify(board)),
       rows,
       cols,
       currentPlayer,
@@ -519,10 +507,10 @@
 
     rows = match.rows;
     cols = match.cols;
-    board = match.board;
     currentPlayer = match.currentPlayer;
     gameMode = match.mode;
 
+    board = JSON.parse(JSON.stringify(match.board));
     initBoard();
 
     myPlayer = PLAYER_YELLOW;
@@ -536,7 +524,6 @@
     updateUIForMatch();
     drawBoard();
 
-    // When player joins, update status to show it's owner's turn
     updateStatus(`${match.creatorName}'s turn`, match.creatorAvatarUrl);
 
     refreshMatchesList();
@@ -598,7 +585,7 @@
     }
 
     currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
-    matches[gameId].board = board;
+    matches[gameId].board = JSON.parse(JSON.stringify(board));
     matches[gameId].currentPlayer = currentPlayer;
     saveGlobalMatches();
 
@@ -636,13 +623,13 @@
     currentUser.avatarUrl = avatarUrlInput.value.trim() || null;
     currentUser.id = 'user_' + Math.random().toString(36).slice(2);
 
-    // Hide username prompt, show all main UI
     usernamePrompt.classList.add('hide');
     header.classList.remove('hide');
     menu.classList.remove('hide');
     matchListDiv.classList.remove('hide');
     statusText.classList.remove('hide');
     canvas.classList.add('hide');
+
     updateUserProfile();
     refreshMatchesList();
   });
@@ -678,7 +665,6 @@
     refreshMatchesList();
   });
 
-  // Listen to localStorage changes for syncing matches across tabs
   window.addEventListener('storage', (event) => {
     if (event.key === STORAGE_KEY) {
       const newMatches = loadGlobalMatches();
