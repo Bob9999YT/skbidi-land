@@ -1,108 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connect Four</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 0;
-      background: #1e1e2f;
-      font-family: sans-serif;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .header, #menu, #matchList, #gameCanvas, #status {
-      display: none;
-      margin-top: 10px;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 90%;
-      max-width: 600px;
-    }
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: #29293d;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 2px solid #ffaa00;
-    }
-    .avatar-circle {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 16px;
-      background: #ffaa00;
-      color: #1e1e2f;
-    }
-    .avatar-circle img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 50%;
-    }
-    #matchList {
-      max-width: 600px;
-      width: 100%;
-    }
-    #matchesContainer {
-      background: #1f1f2b;
-      border: 1px solid #ffaa00;
-      border-radius: 6px;
-      padding: 10px;
-      max-height: 250px;
-      overflow-y: auto;
-    }
-    .matchItem {
-      background: #2e2e3d;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 5px 0;
-      padding: 6px 10px;
-      border-radius: 5px;
-    }
-    .playerInfo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connect Four</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background-color: #1e1e2f;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #fff;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 2rem;
+    color: #ffaa00;
+    margin: 0;
+    text-align: center;
+  }
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #29293d;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 2px solid #ffaa00;
+    user-select: none;
+  }
+  .user-profile .avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #ffaa00;
+    color: #111;
+    font-weight: 700;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-transform: uppercase;
+    overflow: hidden;
+  }
+  .user-profile .avatar-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  .user-profile span {
+    font-weight: 600;
+    color: #ffaa00;
+  }
+  #matchList {
+    max-width: 600px;
+    width: 100%;
+    margin-top: 10px;
+  }
+  #matchesContainer {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #1f1f2b;
+    border: 1.5px solid #ffaa00;
+    border-radius: 6px;
+  }
+  .matchItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 8px;
+    border-bottom: 1px solid #444;
+  }
+  .matchItem:last-child {
+    border-bottom: none;
+  }
+  .matchPlayer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .matchPlayer .avatar-circle {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  button {
+    background-color: #ffaa00;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled {
+    background-color: #555;
+    cursor: default;
+  }
+  #aiDifficultyButtons {
+    margin-top: 10px;
+    display: none;
+    gap: 8px;
+  }
+  #aiDifficultyButtons button {
+    padding: 4px 8px;
+    font-weight: 600;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+  }
+  #aiDifficultyButtons button.active {
+    background-color: #ffaa00;
+    color: black;
+  }
+  canvas {
+    margin-top: 15px;
+    background-color: #ffaa00;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  #status {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: 600;
+    min-height: 30px;
+  }
+  /* Hide everything except username prompt initially */
+  .hide {
+    display: none !important;
+  }
+</style>
 </head>
 <body>
 
-<div id="usernamePromptContainer">
-  <h2 style="color:#ffaa00;">Enter Username</h2>
-  <input id="usernameInput" type="text" placeholder="Username" maxlength="16" />
+<!-- Username prompt -->
+<div id="usernamePromptContainer" style="max-width: 400px; width: 100%;">
+  <h2 style="color:#ffaa00; margin-bottom:10px;">Enter Your Username</h2>
+  <input id="usernameInput" type="text" maxlength="16" placeholder="Your username" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 2px solid #ffaa00; border-radius: 6px; background:#29293d; color:white;" />
   <input id="avatarUrlInput" type="text" placeholder="Avatar Image/GIF URL (optional)"
-         style="margin:10px 0; padding:8px; width:100%; background:#1f1f2b; color:white; border:2px solid #ffaa00; border-radius:6px;" />
-  <button id="usernameSubmit" disabled>Start</button>
+         style="width: 100%; padding: 8px; margin-bottom: 15px; border: 2px solid #ffaa00; border-radius: 6px; background:#29293d; color:white;" />
+  <button id="usernameSubmit" disabled style="width: 100%;">Start Playing</button>
 </div>
 
-<div class="header">
-  <h1 style="color:#ffaa00;">Connect Four</h1>
+<!-- Header -->
+<div class="header hide">
+  <h1>Connect Four</h1>
   <div class="user-profile">
     <div class="avatar-circle" id="userAvatar"></div>
-    <span id="username">Guest</span>
+    <span id="usernameDisplay">Guest</span>
   </div>
 </div>
 
-<div id="menu">
-  <label>Mode:
+<!-- Menu -->
+<div class="menu hide" style="max-width: 600px; width: 100%; margin-top: 10px; gap: 12px; display: flex; flex-wrap: wrap; align-items: center;">
+  <label style="color: #ffaa00; font-weight: 600;">Rows:
+    <select id="rows"></select>
+  </label>
+  <label style="color: #ffaa00; font-weight: 600;">Columns:
+    <select id="cols"></select>
+  </label>
+  <label style="color: #ffaa00; font-weight: 600;">Mode:
     <select id="mode">
       <option value="pvp">Player vs Player</option>
       <option value="ai">Player vs AI</option>
@@ -112,157 +185,504 @@
   <button id="leave" disabled>Leave Game</button>
 </div>
 
-<canvas id="gameCanvas" width="490" height="420"></canvas>
-<div id="status"></div>
+<!-- AI difficulty -->
+<div id="aiDifficultyButtons" class="hide" style="max-width: 600px; width: 100%; justify-content: center; gap: 8px;">
+  <button data-level="easy">Easy</button>
+  <button data-level="normal" class="active">Normal</button>
+  <button data-level="hard">Hard</button>
+  <button data-level="insane">Insane</button>
+  <button data-level="impossible">Impossible</button>
+</div>
 
-<div id="matchList">
-  <h3 style="color:#ffaa00;">Available Matches</h3>
-  <div id="matchesContainer"></div>
+<!-- Canvas -->
+<canvas id="gameCanvas" width="490" height="420" class="hide"></canvas>
+
+<!-- Status -->
+<div id="status" class="hide"></div>
+
+<!-- Match List -->
+<div id="matchList" class="hide" style="max-width: 600px; width: 100%; margin-top: 10px;">
+  <h3 style="color:#ffaa00; text-align:center;">Available Matches</h3>
+  <button id="refreshMatchesBtn">Refresh Matches</button>
+  <div id="matchesContainer">
+    <div class="no-matches" style="text-align:center; color:#888;">No matches available.</div>
+  </div>
 </div>
 
 <script>
-let currentUser = { username: null, avatarUrl: null }, currentUserId = null;
-let gameMode = 'pvp', inMatch = false, matches = {}, gameId = null;
+(() => {
+  const PLAYER_NONE=0, PLAYER_RED=1, PLAYER_YELLOW=2;
 
-const usernameInput = document.getElementById('usernameInput');
-const avatarUrlInput = document.getElementById('avatarUrlInput');
-const usernameSubmit = document.getElementById('usernameSubmit');
-const header = document.querySelector('.header');
-const userAvatarDiv = document.getElementById('userAvatar');
-const usernameSpan = document.getElementById('username');
-const menu = document.getElementById('menu');
-const matchList = document.getElementById('matchList');
-const statusText = document.getElementById('status');
-const createBtn = document.getElementById('create');
-const leaveBtn = document.getElementById('leave');
-const modeSelect = document.getElementById('mode');
-const canvas = document.getElementById('gameCanvas');
-const matchesContainer = document.getElementById('matchesContainer');
+  let currentUser = { username: null, avatarUrl: null, id: null };
+  let rows = 6, cols = 7;
+  let board = [];
+  let currentPlayer = PLAYER_RED;
+  let gameState = 'idle'; // idle, waiting, playing, ended
+  let myPlayer = PLAYER_NONE;
+  let gameId = null;
+  let gameMode = 'pvp';
+  let aiDifficulty = 'normal';
+  let isInMatch = false;
 
-function getAvatarColor(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const STORAGE_KEY = 'connect_four_global_matches';
+  const matches = {};
+
+  // DOM Elements
+  const usernamePrompt = document.getElementById('usernamePromptContainer');
+  const usernameInput = document.getElementById('usernameInput');
+  const avatarUrlInput = document.getElementById('avatarUrlInput');
+  const usernameSubmit = document.getElementById('usernameSubmit');
+  const header = document.querySelector('.header');
+  const userAvatarDiv = document.getElementById('userAvatar');
+  const usernameDisplay = document.getElementById('usernameDisplay');
+  const menu = document.querySelector('.menu');
+  const rowSel = document.getElementById('rows');
+  const colSel = document.getElementById('cols');
+  const modeSel = document.getElementById('mode');
+  const createBtn = document.getElementById('create');
+  const leaveBtn = document.getElementById('leave');
+  const aiDiv = document.getElementById('aiDifficultyButtons');
+  const aiBtns = aiDiv.querySelectorAll('button');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const statusText = document.getElementById('status');
+  const matchListDiv = document.getElementById('matchList');
+  const matchesContainer = document.getElementById('matchesContainer');
+  const refreshBtn = document.getElementById('refreshMatchesBtn');
+
+  // Utilities
+  function getAvatarColor(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
+    return colors[Math.abs(hash) % colors.length];
   }
-  const colors = ['#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
-  return colors[Math.abs(hash) % colors.length];
-}
 
-usernameInput.addEventListener('input', () => {
-  usernameSubmit.disabled = usernameInput.value.trim().length < 2;
-});
-
-usernameSubmit.onclick = () => {
-  currentUser.username = usernameInput.value.trim();
-  currentUser.avatarUrl = avatarUrlInput.value.trim();
-  currentUserId = 'user_' + Math.random().toString(36).slice(2, 10);
-  usernameSpan.textContent = currentUser.username;
-  userAvatarDiv.innerHTML = '';
-  if (currentUser.avatarUrl && currentUser.avatarUrl.startsWith('http')) {
-    const img = document.createElement('img');
-    img.src = currentUser.avatarUrl;
-    userAvatarDiv.appendChild(img);
-  } else {
-    userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
-    userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
+  function createId() {
+    return 'match_' + Math.random().toString(36).substr(2, 9);
   }
-  document.getElementById('usernamePromptContainer').style.display = 'none';
-  header.style.display = 'flex';
-  menu.style.display = 'block';
-  matchList.style.display = 'block';
-  statusText.style.display = 'block';
-  renderMatches();
-};
 
-function renderMatches() {
-  if (!currentUserId || inMatch || gameMode === 'ai') {
-    matchList.style.display = 'none';
-    return;
-  }
-  matchesContainer.innerHTML = '';
-  const exampleMatches = Object.values(matches).filter(m => m.creatorId !== currentUserId);
-  if (exampleMatches.length === 0) {
-    matchesContainer.innerHTML = '<div style="color:#888; text-align:center;">No matches available.</div>';
-    return;
-  }
-  for (const match of exampleMatches) {
-    const div = document.createElement('div');
-    div.className = 'matchItem';
-    const playerInfo = document.createElement('div');
-    playerInfo.className = 'playerInfo';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar-circle';
-    if (match.avatarUrl && match.avatarUrl.startsWith('http')) {
+  function updateUserProfile() {
+    usernameDisplay.textContent = currentUser.username;
+    userAvatarDiv.innerHTML = '';
+    if (currentUser.avatarUrl && currentUser.avatarUrl.startsWith('http')) {
       const img = document.createElement('img');
-      img.src = match.avatarUrl;
-      avatar.appendChild(img);
+      img.src = currentUser.avatarUrl;
+      img.alt = currentUser.username;
+      userAvatarDiv.appendChild(img);
+      userAvatarDiv.style.backgroundColor = 'transparent';
     } else {
-      avatar.textContent = match.creatorName.charAt(0).toUpperCase();
-      avatar.style.backgroundColor = getAvatarColor(match.creatorName);
+      userAvatarDiv.textContent = currentUser.username.charAt(0).toUpperCase();
+      userAvatarDiv.style.backgroundColor = getAvatarColor(currentUser.username);
+    }
+  }
+
+  function initBoard() {
+    board = Array.from({length: rows}, () => Array(cols).fill(PLAYER_NONE));
+    updateCanvasSize();
+  }
+
+  function updateCanvasSize() {
+    canvas.width = cols * 70;
+    canvas.height = rows * 70;
+    drawBoard();
+  }
+
+  function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffaa00';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * 70;
+        const y = r * 70;
+        ctx.fillStyle = '#1e1e2f';
+        ctx.beginPath();
+        ctx.arc(x + 35, y + 35, 30, 0, 2 * Math.PI);
+        ctx.fill();
+
+        if (board[r][c] === PLAYER_RED) {
+          ctx.fillStyle = '#ff3333';
+          ctx.beginPath();
+          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
+          ctx.fill();
+        } else if (board[r][c] === PLAYER_YELLOW) {
+          ctx.fillStyle = '#ffff66';
+          ctx.beginPath();
+          ctx.arc(x + 35, y + 35, 27, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  function findLowestEmptyRow(col) {
+    for (let r = rows - 1; r >= 0; r--) {
+      if (board[r][col] === PLAYER_NONE) return r;
+    }
+    return -1;
+  }
+
+  function checkWin(player) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c <= cols - 4; c++) {
+        if ([0,1,2,3].every(i => board[r][c+i] === player)) return true;
+      }
+    }
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r <= rows - 4; r++) {
+        if ([0,1,2,3].every(i => board[r+i][c] === player)) return true;
+      }
+    }
+    for (let r = 0; r <= rows - 4; r++) {
+      for (let c = 0; c <= cols - 4; c++) {
+        if ([0,1,2,3].every(i => board[r+i][c+i] === player)) return true;
+      }
+    }
+    for (let r = 3; r < rows; r++) {
+      for (let c = 0; c <= cols - 4; c++) {
+        if ([0,1,2,3].every(i => board[r-i][c+i] === player)) return true;
+      }
+    }
+    return false;
+  }
+
+  function isBoardFull() {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (board[r][c] === PLAYER_NONE) return false;
+      }
+    }
+    return true;
+  }
+
+  // Game management
+  function setStatus(msg) {
+    statusText.textContent = msg;
+  }
+
+  // Matches storage management
+  function saveMatches() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(matches));
+  }
+  function loadMatches() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        if (data && typeof data === 'object') {
+          Object.assign(matches, data);
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+  }
+  function pruneMatches() {
+    for (const id in matches) {
+      if (!matches[id].players || matches[id].players.length === 0) {
+        delete matches[id];
+      }
+    }
+  }
+
+  // UI for matches list
+  function renderMatches() {
+    matchesContainer.innerHTML = '';
+    const visibleMatches = Object.values(matches).filter(m => m.mode === 'pvp' && (!isInMatch || m.id !== gameId));
+    if (visibleMatches.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'no-matches';
+      empty.style.textAlign = 'center';
+      empty.style.color = '#888';
+      empty.textContent = 'No matches available.';
+      matchesContainer.appendChild(empty);
+      return;
+    }
+    visibleMatches.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'matchItem';
+
+      const playersDiv = document.createElement('div');
+      playersDiv.className = 'matchPlayer';
+
+      m.players.forEach(p => {
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'avatar-circle';
+        if (p.avatarUrl && p.avatarUrl.startsWith('http')) {
+          const img = document.createElement('img');
+          img.src = p.avatarUrl;
+          img.alt = p.username;
+          avatarDiv.appendChild(img);
+          avatarDiv.style.backgroundColor = 'transparent';
+        } else {
+          avatarDiv.textContent = p.username.charAt(0).toUpperCase();
+          avatarDiv.style.backgroundColor = getAvatarColor(p.username);
+        }
+        playersDiv.appendChild(avatarDiv);
+      });
+
+      div.appendChild(playersDiv);
+
+      const joinBtn = document.createElement('button');
+      joinBtn.textContent = 'Join';
+      joinBtn.disabled = m.players.length >= 2 || isInMatch || m.players.some(p => p.id === currentUser.id);
+      joinBtn.addEventListener('click', () => joinMatch(m.id));
+      div.appendChild(joinBtn);
+
+      matchesContainer.appendChild(div);
+    });
+  }
+
+  // Join a match
+  function joinMatch(id) {
+    if (isInMatch) return;
+    if (!matches[id]) return;
+    const m = matches[id];
+    if (m.players.length >= 2) return;
+    m.players.push({ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl });
+    saveMatches();
+    isInMatch = true;
+    gameId = id;
+    gameMode = m.mode;
+    myPlayer = m.players.length === 1 ? PLAYER_RED : PLAYER_YELLOW;
+    initBoard();
+    currentPlayer = PLAYER_RED;
+    gameState = 'playing';
+    updateUIOnGameStart();
+    setStatus(`Game started! ${currentPlayer === myPlayer ? "Your turn" : "Opponent's turn"}`);
+    renderMatches();
+  }
+
+  // Create a new match
+  function createMatch() {
+    if (isInMatch) return;
+    rows = parseInt(rowSel.value);
+    cols = parseInt(colSel.value);
+    gameMode = modeSel.value;
+
+    if (rows < 4) rows = 6;
+    if (cols < 4) cols = 7;
+
+    const id = createId();
+    matches[id] = {
+      id,
+      mode: gameMode,
+      rows,
+      cols,
+      players: [{ id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }],
+      board: null,
+    };
+    saveMatches();
+
+    isInMatch = true;
+    gameId = id;
+    myPlayer = PLAYER_RED;
+
+    initBoard();
+    currentPlayer = PLAYER_RED;
+    gameState = 'waiting';
+    updateUIOnGameStart();
+    setStatus("Waiting for opponent to join...");
+    renderMatches();
+  }
+
+  // Leave the current match
+  function leaveMatch() {
+    if (!isInMatch || !gameId) return;
+    const m = matches[gameId];
+    if (m) {
+      m.players = m.players.filter(p => p.id !== currentUser.id);
+      if (m.players.length === 0) delete matches[gameId];
+      saveMatches();
+    }
+    isInMatch = false;
+    gameId = null;
+    myPlayer = PLAYER_NONE;
+    gameState = 'idle';
+    setStatus('');
+    renderMatches();
+    updateUIOnGameEnd();
+  }
+
+  // Game turns and moves
+  function playMove(col) {
+    if (gameState !== 'playing') return;
+    if (currentPlayer !== myPlayer) return;
+
+    const r = findLowestEmptyRow(col);
+    if (r === -1) return;
+
+    board[r][col] = currentPlayer;
+    drawBoard();
+
+    if (checkWin(currentPlayer)) {
+      setStatus(currentPlayer === myPlayer ? 'You win!' : 'You lose!');
+      gameState = 'ended';
+      return;
+    }
+    if (isBoardFull()) {
+      setStatus("It's a tie!");
+      gameState = 'ended';
+      return;
     }
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = match.creatorName;
-    playerInfo.appendChild(avatar);
-    playerInfo.appendChild(nameSpan);
+    // Switch turn
+    currentPlayer = currentPlayer === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+    setStatus(currentPlayer === myPlayer ? "Your turn" : "Opponent's turn");
 
-    const joinBtn = document.createElement('button');
-    joinBtn.textContent = 'Join';
-    joinBtn.onclick = () => {
-      joinMatch(match.id);
-    };
-
-    div.appendChild(playerInfo);
-    div.appendChild(joinBtn);
-    matchesContainer.appendChild(div);
+    if (gameMode === 'ai' && currentPlayer !== myPlayer) {
+      setTimeout(aiMove, 500);
+    }
   }
-}
 
-function createMatch() {
-  if (inMatch) return;
-  gameMode = modeSelect.value;
-  inMatch = true;
-  gameId = 'match_' + Math.random().toString(36).slice(2, 9);
-  if (gameMode === 'pvp') {
-    matches[gameId] = {
-      id: gameId,
-      creatorId: currentUserId,
-      creatorName: currentUser.username,
-      avatarUrl: currentUser.avatarUrl
-    };
+  // AI move logic (basic random for now)
+  function aiMove() {
+    if (gameState !== 'playing') return;
+    let validCols = [];
+    for (let c = 0; c < cols; c++) {
+      if (findLowestEmptyRow(c) !== -1) validCols.push(c);
+    }
+    if (validCols.length === 0) return;
+    const col = validCols[Math.floor(Math.random() * validCols.length)];
+    const r = findLowestEmptyRow(col);
+    if (r === -1) return;
+
+    board[r][col] = currentPlayer;
+    drawBoard();
+
+    if (checkWin(currentPlayer)) {
+      setStatus('AI wins!');
+      gameState = 'ended';
+      return;
+    }
+    if (isBoardFull()) {
+      setStatus("It's a tie!");
+      gameState = 'ended';
+      return;
+    }
+
+    currentPlayer = PLAYER_RED;
+    setStatus("Your turn");
   }
-  matchList.style.display = 'none';
-  statusText.textContent = gameMode === 'ai' ? "Your turn (vs AI)" : "Waiting for opponent to join...";
-  leaveBtn.disabled = false;
-  canvas.style.display = 'block';
-}
 
-function joinMatch(id) {
-  const match = matches[id];
-  if (!match || inMatch) return;
-  inMatch = true;
-  statusText.textContent = `${match.creatorName}'s turn`;
-  delete matches[id];
-  matchList.style.display = 'none';
-  canvas.style.display = 'block';
-  leaveBtn.disabled = false;
-}
+  // Canvas click handler
+  canvas.addEventListener('click', e => {
+    if (gameState !== 'playing') return;
+    if (currentPlayer !== myPlayer) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const col = Math.floor(x / 70);
+    if (col < 0 || col >= cols) return;
+    playMove(col);
+  });
 
-function leaveMatch() {
-  inMatch = false;
-  canvas.style.display = 'none';
-  leaveBtn.disabled = true;
-  if (gameMode === 'pvp' && matches[gameId]) {
-    delete matches[gameId];
+  // UI updates on game start
+  function updateUIOnGameStart() {
+    header.classList.remove('hide');
+    menu.classList.remove('hide');
+    canvas.classList.remove('hide');
+    statusText.classList.remove('hide');
+    matchListDiv.classList.add('hide');
+    usernamePrompt.classList.add('hide');
+    leaveBtn.disabled = false;
+
+    if (gameMode === 'ai') {
+      aiDiv.style.display = 'flex';
+    } else {
+      aiDiv.style.display = 'none';
+    }
   }
-  statusText.textContent = 'Match ended.';
-  renderMatches();
-  matchList.style.display = 'block';
-}
 
-createBtn.onclick = () => createMatch();
-leaveBtn.onclick = () => leaveMatch();
+  // UI updates on game end or leaving
+  function updateUIOnGameEnd() {
+    leaveBtn.disabled = true;
+    canvas.classList.add('hide');
+    statusText.textContent = '';
+    if (!isInMatch) {
+      matchListDiv.classList.remove('hide');
+      aiDiv.style.display = 'none';
+    }
+  }
+
+  // Fill rows and cols dropdowns
+  function populateRowColSelectors() {
+    rowSel.innerHTML = '';
+    colSel.innerHTML = '';
+    for (let r = 4; r <= 10; r++) {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      if (r === rows) opt.selected = true;
+      rowSel.appendChild(opt);
+    }
+    for (let c = 4; c <= 10; c++) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if (c === cols) opt.selected = true;
+      colSel.appendChild(opt);
+    }
+  }
+
+  // AI difficulty button handlers
+  aiBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      aiBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      aiDifficulty = btn.dataset.level;
+      // Difficulty logic can be added later
+    });
+  });
+
+  // Username prompt handlers
+  usernameInput.addEventListener('input', () => {
+    usernameSubmit.disabled = usernameInput.value.trim().length === 0;
+  });
+  usernameSubmit.addEventListener('click', () => {
+    const name = usernameInput.value.trim();
+    if (!name) return;
+    currentUser.username = name;
+    currentUser.avatarUrl = avatarUrlInput.value.trim() || null;
+    currentUser.id = 'user_' + Math.random().toString(36).substr(2, 9);
+    updateUserProfile();
+
+    usernamePrompt.classList.add('hide');
+    header.classList.remove('hide');
+    menu.classList.remove('hide');
+    matchListDiv.classList.remove('hide');
+    renderMatches();
+    populateRowColSelectors();
+  });
+
+  // Button handlers
+  createBtn.addEventListener('click', createMatch);
+  leaveBtn.addEventListener('click', leaveMatch);
+  refreshBtn.addEventListener('click', () => {
+    loadMatches();
+    pruneMatches();
+    renderMatches();
+  });
+
+  // Initialize app UI state
+  function init() {
+    usernameSubmit.disabled = true;
+    header.classList.add('hide');
+    menu.classList.add('hide');
+    canvas.classList.add('hide');
+    statusText.classList.add('hide');
+    matchListDiv.classList.add('hide');
+    aiDiv.style.display = 'none';
+    loadMatches();
+    pruneMatches();
+  }
+  init();
+
+})();
 </script>
+
 </body>
 </html>
