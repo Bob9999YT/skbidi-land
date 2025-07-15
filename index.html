@@ -3,110 +3,244 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Connect Four Global Multiplayer & AI</title>
+<title>Connect Four Discord Activity</title>
 <style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+  }
   body {
-    background: #1e1e2f;
+    margin: 0; padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e1e2f 0%, #29293d 100%);
     color: #eee;
-    font-family: sans-serif;
-    margin: 0;
-    padding: 20px;
+    user-select: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-    user-select: none;
-  }
-  #canvas {
-    border: 2px solid #ffaa00;
-    cursor: pointer;
-    margin-top: 15px;
-    background: #222244;
-    border-radius: 12px;
-    pointer-events: auto;
-    z-index: 1;
-  }
-  #status {
-    margin: 10px;
-    font-size: 18px;
-    user-select: text;
-    z-index: 10;
-  }
-  #matchList {
-    width: 350px;
-    max-height: 300px;
     overflow-y: auto;
-    background: #29293d;
-    border-radius: 8px;
-    padding: 10px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
     margin-top: 20px;
-    user-select: text;
-    z-index: 10;
-  }
-  .matchItem {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 0;
-    border-bottom: 1px solid #555;
-  }
-  .matchPlayer {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     color: #ffaa00;
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: fadeSlideIn 0.6s forwards;
+    animation-delay: 0.1s;
   }
-  .avatar-circle {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #555;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
+
+  /* Animation keyframes */
+  @keyframes fadeSlideIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fadeSlideOut {
+    to {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+
+  /* Container fade/slide */
+  .fade-slide {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .fade-slide.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .fade-slide.hide {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+  }
+
+  /* Input and buttons */
+  input[type="text"] {
+    padding: 12px 15px;
     font-size: 16px;
+    border-radius: 8px;
+    border: none;
+    width: 280px;
+    margin-bottom: 12px;
+    outline-offset: 2px;
+    outline-color: #ffaa00;
+    transition: box-shadow 0.3s ease;
   }
+  input[type="text"]:focus {
+    box-shadow: 0 0 10px #ffaa00;
+  }
+
   button {
     background: #ffaa00;
-    border: none;
     color: #222;
-    padding: 6px 10px;
-    border-radius: 6px;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 16px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: background-color 0.25s ease, transform 0.2s ease;
     user-select: none;
-    position: relative;
-    z-index: 1001;
+    box-shadow: 0 4px 8px rgb(255 170 0 / 0.4);
   }
   button:hover:not(:disabled) {
     background: #ffbb33;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgb(255 187 51 / 0.6);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 3px 6px rgb(255 170 0 / 0.3);
   }
   button:disabled {
     background: #555;
     cursor: not-allowed;
+    box-shadow: none;
   }
+
+  select {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    margin-left: 10px;
+    outline-offset: 2px;
+    outline-color: #ffaa00;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgb(255 170 0 / 0.4);
+    transition: box-shadow 0.3s ease;
+  }
+  select:hover {
+    box-shadow: 0 6px 12px rgb(255 170 0 / 0.6);
+  }
+
+  /* Container layouts */
+  #usernamePrompt,
+  #menu,
+  #matchList,
+  #status {
+    margin-top: 15px;
+    width: 350px;
+    max-width: 90vw;
+  }
+
+  #menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #aiDifficultyButtons {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+
   #aiDifficultyButtons button {
-    margin-right: 5px;
-    border-radius: 6px;
+    flex-grow: 1;
+    font-weight: 600;
   }
   #aiDifficultyButtons button.active {
     background: #ffdd55;
     color: #222;
-    font-weight: bold;
+    box-shadow: 0 6px 14px rgb(255 221 85 / 0.8);
   }
-  #usernameInput {
-    width: 300px;
-    padding: 6px;
-    margin-bottom: 10px;
-    border-radius: 6px;
-    border: none;
+
+  #matchList {
+    background: #29293d;
+    border-radius: 12px;
+    padding: 12px 15px;
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
     user-select: text;
   }
-  #menu {
-    margin-top: 10px;
-    z-index: 10;
+
+  .matchItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #444;
+  }
+  .matchItem:last-child {
+    border-bottom: none;
+  }
+  .matchPlayer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #ffaa00;
+  }
+  .avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #555;
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  #status {
+    min-height: 24px;
+    font-weight: 600;
+    text-align: center;
+    color: #ffcc00;
+    letter-spacing: 0.03em;
+    user-select: text;
+  }
+
+  /* Canvas styling */
+  #canvas {
+    margin-top: 20px;
+    border-radius: 12px;
+    background: #222244;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(255, 170, 0, 0.3);
+    transition: box-shadow 0.3s ease;
+    max-width: 100vw;
+    user-select: none;
+  }
+  #canvas:hover {
+    box-shadow: 0 12px 32px rgba(255, 187, 51, 0.6);
+  }
+
+  /* Scrollbar for matchList */
+  #matchList::-webkit-scrollbar {
+    width: 8px;
+  }
+  #matchList::-webkit-scrollbar-track {
+    background: #29293d;
+  }
+  #matchList::-webkit-scrollbar-thumb {
+    background: #ffaa00;
+    border-radius: 4px;
+  }
+
+  /* Disable text selection for buttons and canvas */
+  button, #canvas {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 </style>
 </head>
@@ -114,19 +248,19 @@
 
 <h1>Connect Four</h1>
 
-<div id="usernamePrompt">
-  <input id="usernameInput" placeholder="Enter username" />
+<div id="usernamePrompt" class="fade-slide show">
+  <input id="usernameInput" placeholder="Enter your username" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
   <button id="usernameSubmit" disabled>Start</button>
 </div>
 
-<div id="menu" style="display:none;">
-  <label for="modeSelect">Choose Mode:</label>
-  <select id="modeSelect">
+<div id="menu" class="fade-slide hide" aria-hidden="true">
+  <label for="modeSelect" style="font-weight:600; color:#ffaa00;">Choose Mode:</label>
+  <select id="modeSelect" aria-label="Game mode selector">
     <option value="pvp">Player vs Player</option>
     <option value="ai">Player vs AI</option>
   </select>
 
-  <div id="aiDifficultyButtons" style="display:none; margin-top:10px;">
+  <div id="aiDifficultyButtons" style="display:none;" aria-label="AI difficulty selection">
     <button data-level="easy">Easy</button>
     <button data-level="normal" class="active">Normal</button>
     <button data-level="hard">Hard</button>
@@ -134,23 +268,26 @@
     <button data-level="impossible">Impossible</button>
   </div>
 
-  <button id="createMatchBtn">Create Match</button>
-  <button id="leaveMatchBtn" disabled>Leave Match</button>
-  <button id="refreshMatchesBtn" style="margin-left: 10px;">🔄 Refresh Matches</button>
+  <div style="margin-top: 10px;">
+    <button id="createMatchBtn">Create Match</button>
+    <button id="leaveMatchBtn" disabled>Leave Match</button>
+    <button id="refreshMatchesBtn" style="margin-left: 10px;">🔄 Refresh Matches</button>
+  </div>
 </div>
 
-<div id="status"></div>
-<div id="matchList" style="display:none;"></div>
+<div id="status" class="fade-slide" aria-live="polite"></div>
 
-<canvas id="canvas" width="420" height="360" style="display:none;"></canvas>
+<div id="matchList" class="fade-slide" aria-label="Available matches"></div>
 
-<!-- Firebase -->
+<canvas id="canvas" width="420" height="360" style="display:none;" aria-label="Connect Four game board" role="img" tabindex="0"></canvas>
+
+<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
 <script>
 (() => {
-  // --- Firebase Config ---
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyCKSyN1gTe8XvveVnDV8VzXLieaPGsQBc8",
     authDomain: "sigma-skibidi-b9e1e.firebaseapp.com",
@@ -161,20 +298,14 @@
     appId: "1:645635975542:web:f22275c0e2b9ae00f8b257",
     measurementId: "G-G7DX318MFR"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // --- Constants ---
+  // Constants
   const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
   const ROWS = 6, COLS = 7;
-  const MAX_DEPTH = {
-    hard: 3,
-    insane: 5,
-    impossible: 7
-  };
 
-  // --- State ---
+  // State
   let board = [];
   let currentPlayer = PLAYER_RED;
   let myPlayer = PLAYER_NONE;
@@ -183,9 +314,9 @@
   let gameId = null;
   let currentUser = { id: null, username: null };
   let isInMatch = false;
-  let gameState = 'idle'; // 'idle', 'waiting', 'playing', 'ended'
+  let gameState = 'idle';
 
-  // --- Elements ---
+  // DOM Elements
   const usernamePrompt = document.getElementById('usernamePrompt');
   const usernameInput = document.getElementById('usernameInput');
   const usernameSubmit = document.getElementById('usernameSubmit');
@@ -200,42 +331,51 @@
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  // --- Functions ---
+  // Animations helpers
+  function fadeIn(el) {
+    el.classList.remove('hide');
+    el.classList.add('show');
+    el.setAttribute('aria-hidden', 'false');
+  }
+  function fadeOut(el) {
+    el.classList.remove('show');
+    el.classList.add('hide');
+    el.setAttribute('aria-hidden', 'true');
+  }
 
+  // Board helpers
   function initBoard(){
     board = [];
     for(let r=0; r<ROWS; r++){
-      const row = [];
-      for(let c=0; c<COLS; c++){
-        row.push(PLAYER_NONE);
-      }
-      board.push(row);
+      board.push(new Array(COLS).fill(PLAYER_NONE));
     }
   }
 
   function drawBoard(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     const cellSize = canvas.width / COLS;
 
     ctx.fillStyle = '#222244';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     for(let r=0; r<ROWS; r++){
       for(let c=0; c<COLS; c++){
         const x = c * cellSize;
         const y = r * cellSize;
 
+        // slot background
         ctx.beginPath();
         ctx.fillStyle = '#555577';
         ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 6, 0, Math.PI*2);
         ctx.fill();
         ctx.closePath();
 
+        // piece
         if(board[r][c] !== PLAYER_NONE){
           ctx.beginPath();
           ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff5555' : '#ffff77';
-          ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 10;
           ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 12, 0, Math.PI*2);
           ctx.fill();
           ctx.shadowBlur = 0;
@@ -257,12 +397,12 @@
 
   function checkWinner(player, b=board){
     const directions = [[0,1],[1,0],[1,1],[1,-1]];
-    function inBounds(r,c){ return r >= 0 && r < ROWS && c >=0 && c < COLS; }
+    function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
     for(let r=0; r<ROWS; r++){
       for(let c=0; c<COLS; c++){
         if(b[r][c] !== player) continue;
         for(const [dr,dc] of directions){
-          let count = 1;
+          let count=1;
           for(let step=1; step<4; step++){
             const nr = r + dr*step;
             const nc = c + dc*step;
@@ -300,15 +440,14 @@
     myPlayer = PLAYER_NONE;
     isInMatch = false;
     leaveMatchBtn.disabled = true;
+    fadeOut(menu);
+    fadeIn(usernamePrompt);
+    fadeOut(matchListDiv);
     canvas.style.display = 'none';
     updateStatus('');
-    if(!currentUser.id || isInMatch) {
-      matchListDiv.style.display = 'none';
-    } else {
-      matchListDiv.style.display = 'block';
-    }
   }
 
+  // Firebase match functions
   function createMatch(){
     if(isInMatch) return alert("Already in a match!");
     initBoard();
@@ -318,6 +457,9 @@
     isInMatch = true;
     leaveMatchBtn.disabled = false;
     myPlayer = PLAYER_RED;
+    fadeOut(matchListDiv);
+    fadeIn(menu);
+
     if(gameMode === 'pvp'){
       const newMatchRef = db.ref('matches').push();
       gameId = newMatchRef.key;
@@ -333,12 +475,12 @@
       newMatchRef.set(matchData);
       updateStatus("Waiting for opponent to join...");
       listenToMatch(gameId);
-      matchListDiv.style.display = 'none';
+      fadeIn(canvas);
     } else if(gameMode === 'ai'){
       gameId = null;
-      canvas.style.display = 'block';
+      fadeIn(canvas);
       updateStatus("Your turn!");
-      matchListDiv.style.display = 'none';
+      fadeOut(matchListDiv);
     }
   }
 
@@ -359,13 +501,13 @@
       gameId = id;
       isInMatch = true;
       myPlayer = PLAYER_YELLOW;
-      currentPlayer = data.currentPlayer;
+      currentPlayer = PLAYER_RED;
       board = data.board || board;
-      gameState = 'playing';
-
-      updateStatus(`You joined! Your turn!`);
-      canvas.style.display = 'block';
-      matchListDiv.style.display = 'none';
+      drawBoard();
+      updateStatus("Game started! Waiting for opponent move...");
+      leaveMatchBtn.disabled = false;
+      fadeIn(canvas);
+      fadeOut(matchListDiv);
       listenToMatch(gameId);
     });
   }
@@ -374,58 +516,9 @@
     if(!isInMatch) return;
     if(gameMode === 'pvp' && gameId){
       const matchRef = db.ref('matches/'+gameId);
-      matchRef.once('value', snapshot => {
-        if(!snapshot.exists()) return;
-
-        const data = snapshot.val();
-
-        if(data.owner.id === currentUser.id){
-          matchRef.remove();
-        } else if(data.opponent && data.opponent.id === currentUser.id){
-          matchRef.update({
-            opponent: null,
-            status: 'waiting'
-          });
-        }
-      });
+      matchRef.remove();
     }
     resetGame();
-    renderMatchList();
-  }
-
-  function listenToMatch(id){
-    const matchRef = db.ref('matches/'+id);
-    matchRef.on('value', snapshot => {
-      if(!snapshot.exists()) {
-        updateStatus('Match ended or deleted.');
-        resetGame();
-        renderMatchList();
-        return;
-      }
-      const data = snapshot.val();
-      board = data.board || board;
-      currentPlayer = data.currentPlayer || PLAYER_RED;
-      gameState = data.status === 'playing' ? 'playing' : data.status;
-      drawBoard();
-
-      if(gameState === 'waiting'){
-        if(currentUser.id === data.owner.id){
-          updateStatus("Waiting for opponent to join...");
-        } else {
-          updateStatus("You joined! Your turn!");
-        }
-      } else if(gameState === 'playing'){
-        if(currentPlayer === myPlayer){
-          updateStatus("Your turn!");
-        } else {
-          updateStatus("Opponent's turn");
-        }
-      } else if(gameState === 'ended'){
-        updateStatus("Game ended.");
-        resetGame();
-      }
-      renderMatchList();
-    });
   }
 
   function updateMatchBoard(){
@@ -437,65 +530,61 @@
     });
   }
 
-  function onCanvasClick(e){
-    if(!isInMatch || gameState !== 'playing') return;
-    if(currentPlayer !== myPlayer) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const cellSize = canvas.width / COLS;
-    const x = e.clientX - rect.left;
-    const col = Math.floor(x / cellSize);
-
-    if(col < 0 || col >= COLS) return;
-
-    const row = placePiece(col, myPlayer);
-    if(row === -1) return;
-
-    drawBoard();
-
-    if(checkWinner(myPlayer)){
-      gameState = 'ended';
-      updateStatus("You win!");
-      if(gameMode === 'pvp') {
-        const matchRef = db.ref('matches/'+gameId);
-        matchRef.update({status:'ended'});
+  function listenToMatch(id){
+    const matchRef = db.ref('matches/'+id);
+    matchRef.on('value', snapshot => {
+      const data = snapshot.val();
+      if(!data){
+        updateStatus("Match ended or canceled.");
+        resetGame();
+        return;
       }
-      return;
-    } else if(isBoardFull()){
-      gameState = 'ended';
-      updateStatus("Draw!");
-      if(gameMode === 'pvp'){
-        const matchRef = db.ref('matches/'+gameId);
-        matchRef.update({status:'ended'});
+      if(data.status === 'ended'){
+        updateStatus("Match ended.");
+        resetGame();
+        return;
       }
-      return;
-    }
+      if(data.board){
+        board = data.board;
+        drawBoard();
+      }
+      currentPlayer = data.currentPlayer || PLAYER_RED;
 
-    switchPlayer();
+      if(gameState !== 'playing') gameState = 'playing';
 
-    if(gameMode === 'pvp'){
-      updateMatchBoard();
-    } else if(gameMode === 'ai'){
-      updateStatus("AI thinking...");
-      setTimeout(() => {
-        aiMove();
-      }, 300);
-    }
+      if(myPlayer !== currentPlayer){
+        updateStatus("Opponent's turn...");
+      } else {
+        updateStatus("Your turn!");
+      }
+
+      if(checkWinner(PLAYER_RED)){
+        updateStatus("Red wins!");
+        gameState = 'ended';
+      } else if(checkWinner(PLAYER_YELLOW)){
+        updateStatus("Yellow wins!");
+        gameState = 'ended';
+      } else if(isBoardFull()){
+        updateStatus("Draw!");
+        gameState = 'ended';
+      }
+    });
   }
 
-  function getValidColumns(b=board){
+  // --- AI Minimax and helpers ---
+
+  function getValidColumns(b = board){
     const cols = [];
-    for(let c=0; c<COLS; c++){
+    for(let c=0;c<COLS;c++){
       if(b[0][c] === PLAYER_NONE) cols.push(c);
     }
     return cols;
   }
 
   function copyBoard(b){
-    return b.map(row => row.slice());
+    return b.map(r => r.slice());
   }
 
-  // Heuristic evaluation for AI
   function evaluateWindow(windowArr, player){
     let score = 0;
     const opponent = player === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
@@ -503,54 +592,47 @@
     const countOpponent = windowArr.filter(v => v === opponent).length;
     const countEmpty = windowArr.filter(v => v === PLAYER_NONE).length;
 
-    if(countPlayer === 4){
-      score += 100;
-    } else if(countPlayer === 3 && countEmpty ===1){
-      score += 5;
-    } else if(countPlayer === 2 && countEmpty === 2){
-      score += 2;
-    }
-    if(countOpponent === 3 && countEmpty === 1){
-      score -= 4;
-    }
+    if(countPlayer === 4) score += 100;
+    else if(countPlayer === 3 && countEmpty === 1) score += 5;
+    else if(countPlayer === 2 && countEmpty === 2) score += 2;
+
+    if(countOpponent === 3 && countEmpty === 1) score -= 4;
     return score;
   }
 
   function scorePosition(b, player){
     let score = 0;
-
-    // Center column preference
     const centerArray = [];
-    for(let r=0; r<ROWS; r++){
+    for(let r=0;r<ROWS;r++){
       centerArray.push(b[r][Math.floor(COLS/2)]);
     }
     const centerCount = centerArray.filter(c => c === player).length;
     score += centerCount * 3;
 
-    // Horizontal
-    for(let r=0; r<ROWS; r++){
-      for(let c=0; c<COLS-3; c++){
+    // horizontal
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS-3;c++){
         const windowArr = [b[r][c],b[r][c+1],b[r][c+2],b[r][c+3]];
         score += evaluateWindow(windowArr, player);
       }
     }
-    // Vertical
-    for(let c=0; c<COLS; c++){
-      for(let r=0; r<ROWS-3; r++){
+    // vertical
+    for(let c=0;c<COLS;c++){
+      for(let r=0;r<ROWS-3;r++){
         const windowArr = [b[r][c],b[r+1][c],b[r+2][c],b[r+3][c]];
         score += evaluateWindow(windowArr, player);
       }
     }
-    // Pos Diagonal
-    for(let r=0; r<ROWS-3; r++){
-      for(let c=0; c<COLS-3; c++){
+    // positive diagonal
+    for(let r=0;r<ROWS-3;r++){
+      for(let c=0;c<COLS-3;c++){
         const windowArr = [b[r][c],b[r+1][c+1],b[r+2][c+2],b[r+3][c+3]];
         score += evaluateWindow(windowArr, player);
       }
     }
-    // Neg Diagonal
-    for(let r=3; r<ROWS; r++){
-      for(let c=0; c<COLS-3; c++){
+    // negative diagonal
+    for(let r=3;r<ROWS;r++){
+      for(let c=0;c<COLS-3;c++){
         const windowArr = [b[r][c],b[r-1][c+1],b[r-2][c+2],b[r-3][c+3]];
         score += evaluateWindow(windowArr, player);
       }
@@ -562,7 +644,6 @@
     return checkWinner(PLAYER_RED, b) || checkWinner(PLAYER_YELLOW, b) || isBoardFull(b);
   }
 
-  // Minimax with alpha-beta pruning
   function minimax(b, depth, alpha, beta, maximizingPlayer){
     const validLocations = getValidColumns(b);
     const isTerminal = isTerminalNode(b);
@@ -572,19 +653,18 @@
         if(checkWinner(PLAYER_YELLOW, b)) return {score: 1000000000};
         else if(checkWinner(PLAYER_RED, b)) return {score: -1000000000};
         else return {score: 0};
-      } else {
-        return {score: scorePosition(b, PLAYER_YELLOW)};
       }
+      else return {score: scorePosition(b, PLAYER_YELLOW)};
     }
 
     if(maximizingPlayer){
       let value = -Infinity;
       let column = validLocations[0];
       for(const col of validLocations){
-        const row = getNextOpenRow(b,col);
+        const row = getNextOpenRow(b, col);
         const bCopy = copyBoard(b);
         bCopy[row][col] = PLAYER_YELLOW;
-        const newScore = minimax(bCopy, depth-1, alpha, beta, false).score;
+        const newScore = minimax(bCopy, depth - 1, alpha, beta, false).score;
         if(newScore > value){
           value = newScore;
           column = col;
@@ -592,15 +672,15 @@
         alpha = Math.max(alpha, value);
         if(alpha >= beta) break;
       }
-      return {column: column, score: value};
+      return {column, score: value};
     } else {
       let value = Infinity;
       let column = validLocations[0];
       for(const col of validLocations){
-        const row = getNextOpenRow(b,col);
+        const row = getNextOpenRow(b, col);
         const bCopy = copyBoard(b);
         bCopy[row][col] = PLAYER_RED;
-        const newScore = minimax(bCopy, depth-1, alpha, beta, true).score;
+        const newScore = minimax(bCopy, depth - 1, alpha, beta, true).score;
         if(newScore < value){
           value = newScore;
           column = col;
@@ -608,12 +688,12 @@
         beta = Math.min(beta, value);
         if(alpha >= beta) break;
       }
-      return {column: column, score: value};
+      return {column, score: value};
     }
   }
 
   function getNextOpenRow(b, col){
-    for(let r=ROWS-1; r>=0; r--){
+    for(let r=ROWS-1;r>=0;r--){
       if(b[r][col] === PLAYER_NONE) return r;
     }
     return -1;
@@ -623,18 +703,20 @@
     if(gameState !== 'playing' || currentPlayer !== PLAYER_YELLOW) return;
 
     let col;
-
-    if(aiDifficulty === 'easy'){
-      // Random valid move
-      const validCols = getValidColumns();
-      col = validCols[Math.floor(Math.random() * validCols.length)];
-    } else if(['normal','hard','insane','impossible'].includes(aiDifficulty)){
-      let depth = 4;
-      if(aiDifficulty === 'normal') depth = 3;
-      else if(aiDifficulty === 'hard') depth = 4;
-      else if(aiDifficulty === 'insane') depth = 5;
-      else if(aiDifficulty === 'impossible') depth = 7;
-
+    let depth;
+    switch(aiDifficulty){
+      case 'easy': {
+        const validCols = getValidColumns();
+        col = validCols[Math.floor(Math.random() * validCols.length)];
+        break;
+      }
+      case 'normal': depth = 3; break;
+      case 'hard': depth = 4; break;
+      case 'insane': depth = 5; break;
+      case 'impossible': depth = 7; break;
+      default: depth = 3;
+    }
+    if(depth){
       const result = minimax(board, depth, -Infinity, Infinity, true);
       col = result.column;
     }
@@ -656,26 +738,30 @@
     updateStatus("Your turn!");
   }
 
-  // --- UI and Event Listeners ---
+  // --- UI Event Listeners ---
 
   usernameInput.addEventListener('input', () => {
     usernameSubmit.disabled = usernameInput.value.trim() === '';
   });
 
   usernameSubmit.addEventListener('click', () => {
-    currentUser.id = 'user-' + Math.random().toString(36).substring(2, 10);
+    currentUser.id = 'user-' + Math.random().toString(36).slice(2, 10);
     currentUser.username = usernameInput.value.trim();
-    usernamePrompt.style.display = 'none';
-    menu.style.display = 'block';
-    matchListDiv.style.display = 'block';
+    fadeOut(usernamePrompt);
+    fadeIn(menu);
+    fadeIn(matchListDiv);
     canvas.style.display = 'none';
-    renderMatchList();
     updateStatus(`Welcome, ${currentUser.username}!`);
+    renderMatchList();
   });
 
   modeSelect.addEventListener('change', () => {
     gameMode = modeSelect.value;
-    aiDifficultyButtons.style.display = gameMode === 'ai' ? 'block' : 'none';
+    if(gameMode === 'ai'){
+      aiDifficultyButtons.style.display = 'flex';
+    } else {
+      aiDifficultyButtons.style.display = 'none';
+    }
   });
 
   aiDifficultyButtons.querySelectorAll('button').forEach(btn => {
@@ -698,15 +784,49 @@
     renderMatchList();
   });
 
-  canvas.addEventListener('click', onCanvasClick);
+  canvas.addEventListener('click', e => {
+    if(gameState !== 'playing' || currentPlayer !== myPlayer) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const colWidth = canvas.width / COLS;
+    const clickedCol = Math.floor(x / colWidth);
 
-  // --- Match List Rendering ---
+    if(clickedCol < 0 || clickedCol >= COLS) return;
+    if(board[0][clickedCol] !== PLAYER_NONE) return; // Column full
+
+    const row = placePiece(clickedCol, currentPlayer);
+    drawBoard();
+
+    if(checkWinner(currentPlayer)){
+      updateStatus(currentPlayer === PLAYER_RED ? "Red wins!" : "Yellow wins!");
+      gameState = 'ended';
+      if(gameMode === 'pvp' && gameId) updateMatchBoard();
+      return;
+    } else if(isBoardFull()){
+      updateStatus("Draw!");
+      gameState = 'ended';
+      if(gameMode === 'pvp' && gameId) updateMatchBoard();
+      return;
+    }
+
+    switchPlayer();
+
+    if(gameMode === 'pvp' && gameId){
+      updateMatchBoard();
+      updateStatus("Opponent's turn...");
+    } else if(gameMode === 'ai'){
+      updateStatus("AI thinking...");
+      setTimeout(aiMove, 400);
+    }
+  });
+
+  // --- Match List ---
   function renderMatchList(){
     if(!currentUser.id) return;
     matchListDiv.innerHTML = '<h3>Available Matches</h3>';
 
     const matchesRef = db.ref('matches');
-    matchesRef.once('value', snapshot => {
+    matchesRef.once('value').then(snapshot => {
       const data = snapshot.val();
       matchListDiv.innerHTML = '<h3>Available Matches</h3>';
       if(!data){
@@ -744,10 +864,12 @@
       if(count === 0){
         matchListDiv.innerHTML += '<p>No matches available to join.</p>';
       }
+    }).catch(() => {
+      matchListDiv.innerHTML += '<p>Error loading matches.</p>';
     });
   }
 
-  // --- Init ---
+  // --- Initialize ---
   resetGame();
 
 })();
