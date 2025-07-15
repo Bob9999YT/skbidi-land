@@ -156,6 +156,7 @@
   // --- Constants ---
   const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
   const ROWS = 6, COLS = 7;
+  const MAX_DEPTH = {hard: 2, insane: 4, impossible: 6};
 
   // --- State ---
   let board = [];
@@ -230,28 +231,28 @@
     }
   }
 
-  function placePiece(col, player){
+  function placePiece(col, player, b=board){
     for(let r=ROWS-1; r>=0; r--){
-      if(board[r][col] === PLAYER_NONE){
-        board[r][col] = player;
+      if(b[r][col] === PLAYER_NONE){
+        b[r][col] = player;
         return r;
       }
     }
     return -1;
   }
 
-  function checkWinner(player, boardToCheck=board){
+  function checkWinner(player, b=board){
     const directions = [[0,1],[1,0],[1,1],[1,-1]];
     function inBounds(r,c){ return r >= 0 && r < ROWS && c >=0 && c < COLS; }
     for(let r=0; r<ROWS; r++){
       for(let c=0; c<COLS; c++){
-        if(boardToCheck[r][c] !== player) continue;
+        if(b[r][c] !== player) continue;
         for(const [dr,dc] of directions){
           let count = 1;
           for(let step=1; step<4; step++){
             const nr = r + dr*step;
             const nc = c + dc*step;
-            if(inBounds(nr,nc) && boardToCheck[nr][nc] === player) count++;
+            if(inBounds(nr,nc) && b[nr][nc] === player) count++;
             else break;
           }
           if(count >= 4) return true;
@@ -261,9 +262,9 @@
     return false;
   }
 
-  function isBoardFull(boardToCheck=board){
+  function isBoardFull(b=board){
     for(let c=0; c<COLS; c++){
-      if(boardToCheck[0][c] === PLAYER_NONE) return false;
+      if(b[0][c] === PLAYER_NONE) return false;
     }
     return true;
   }
@@ -287,7 +288,6 @@
     leaveMatchBtn.disabled = true;
     canvas.style.display = 'none';
     updateStatus('');
-    // Hide matches list when idle or no username
     if(!currentUser.id || isInMatch) {
       matchListDiv.style.display = 'none';
     } else {
@@ -319,12 +319,12 @@
       newMatchRef.set(matchData);
       updateStatus("Waiting for opponent to join...");
       listenToMatch(gameId);
-      matchListDiv.style.display = 'none'; // hide matches while in match
+      matchListDiv.style.display = 'none';
     } else if(gameMode === 'ai'){
       gameId = null;
       canvas.style.display = 'block';
       updateStatus("Your turn!");
-      matchListDiv.style.display = 'none'; // no matches for AI
+      matchListDiv.style.display = 'none';
     }
   }
 
@@ -351,7 +351,7 @@
 
       updateStatus(`You joined! Your turn!`);
       canvas.style.display = 'block';
-      matchListDiv.style.display = 'none'; // hide matches while in match
+      matchListDiv.style.display = 'none';
       listenToMatch(gameId);
     });
   }
@@ -497,165 +497,203 @@
     return valid;
   }
 
-  function easyAI(){
-    const valid = getValidColsInBoard(board);
-    if(valid.length === 0) return -1;
-    return valid[Math.floor(Math.random()*valid.length)];
+  // Heuristic evaluation for board
+  function evaluateBoard(b, player) {
+    let score = 0;
+    const opponent = player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW;
+
+    function countWindow(window) {
+      let playerCount = 0, oppCount = 0, emptyCount = 0;
+      for (const cell of window) {
+        if (cell === player) playerCount++;
+        else if (cell === opponent) oppCount++;
+        else emptyCount++;
+      }
+      if (playerCount === 4) return 100000;
+      if (playerCount === 3 && emptyCount === 1) return 100;
+      if (playerCount === 2 && emptyCount === 2) return 10;
+      if (oppCount === 3 && emptyCount === 1) return -800;
+      if (oppCount === 2 && emptyCount === 2) return -10;
+      return 0;
+    }
+
+    // Horizontal
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS - 3; c++) {
+        const window = [b[r][c], b[r][c+1], b[r][c+2], b[r][c+3]];
+        score += countWindow(window);
+      }
+    }
+    // Vertical
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS - 3; r++) {
+        const window = [b[r][c], b[r+1][c], b[r+2][c], b[r+3][c]];
+        score += countWindow(window);
+      }
+    }
+    // Diagonal /
+    for (let r = 3; r < ROWS; r++) {
+      for (let c = 0; c < COLS - 3; c++) {
+        const window = [b[r][c], b[r-1][c+1], b[r-2][c+2], b[r-3][c+3]];
+        score += countWindow(window);
+      }
+    }
+    // Diagonal \
+    for (let r = 0; r < ROWS - 3; r++) {
+      for (let c = 0; c < COLS - 3; c++) {
+        const window = [b[r][c], b[r+1][c+1], b[r+2][c+2], b[r+3][c+3]];
+        score += countWindow(window);
+      }
+    }
+
+    return score;
+  }
+
+  function minimax(b, depth, alpha, beta, maximizingPlayer, player){
+    const validLocations = getValidColsInBoard(b);
+    const isTerminal = checkWinner(PLAYER_RED, b) || checkWinner(PLAYER_YELLOW, b) || validLocations.length === 0;
+
+    if(depth === 0 || isTerminal){
+      if(isTerminal){
+        if(checkWinner(player, b)) return [null, 1000000000000];
+        else if(checkWinner(player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW, b)) return [null, -1000000000000];
+        else return [null, 0];
+      } else {
+        return [null, evaluateBoard(b, player)];
+      }
+    }
+
+    if(maximizingPlayer){
+      let value = -Infinity;
+      let column = validLocations[Math.floor(Math.random() * validLocations.length)];
+      for(const col of validLocations){
+        const row = getAvailableRowInBoard(b, col);
+        if(row === -1) continue;
+        const boardCopy = b.map(r => r.slice());
+        boardCopy[row][col] = player;
+        const newScore = minimax(boardCopy, depth-1, alpha, beta, false, player)[1];
+        if(newScore > value){
+          value = newScore;
+          column = col;
+        }
+        alpha = Math.max(alpha, value);
+        if(alpha >= beta) break;
+      }
+      return [column, value];
+    } else {
+      let value = Infinity;
+      let column = validLocations[Math.floor(Math.random() * validLocations.length)];
+      const opponent = player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW;
+      for(const col of validLocations){
+        const row = getAvailableRowInBoard(b, col);
+        if(row === -1) continue;
+        const boardCopy = b.map(r => r.slice());
+        boardCopy[row][col] = opponent;
+        const newScore = minimax(boardCopy, depth-1, alpha, beta, true, player)[1];
+        if(newScore < value){
+          value = newScore;
+          column = col;
+        }
+        beta = Math.min(beta, value);
+        if(alpha >= beta) break;
+      }
+      return [column, value];
+    }
   }
 
   function normalAI(){
+    // Try win, block, or random
     for(let c=0; c<COLS; c++){
-      let r = getAvailableRowInBoard(board, c);
+      const r = getAvailableRowInBoard(board, c);
       if(r === -1) continue;
-      const tempBoard = JSON.parse(JSON.stringify(board));
-      tempBoard[r][c] = PLAYER_YELLOW;
-      if(checkWinner(PLAYER_YELLOW, tempBoard)) return c;
+      board[r][c] = PLAYER_YELLOW;
+      if(checkWinner(PLAYER_YELLOW)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
     }
     for(let c=0; c<COLS; c++){
-      let r = getAvailableRowInBoard(board, c);
+      const r = getAvailableRowInBoard(board, c);
       if(r === -1) continue;
-      const tempBoard = JSON.parse(JSON.stringify(board));
-      tempBoard[r][c] = PLAYER_RED;
-      if(checkWinner(PLAYER_RED, tempBoard)) return c;
+      board[r][c] = PLAYER_RED;
+      if(checkWinner(PLAYER_RED)){
+        board[r][c] = PLAYER_NONE;
+        return c;
+      }
+      board[r][c] = PLAYER_NONE;
     }
-    return easyAI();
+    const validCols = getValidColsInBoard(board);
+    return validCols[Math.floor(Math.random()*validCols.length)];
   }
 
-  function hardAI(){ return normalAI(); }
-  function insaneAI(){ return normalAI(); }
-  function impossibleAI(){ return normalAI(); }
+  function hardAI(){
+    const [col] = minimax(board, MAX_DEPTH.hard, -Infinity, Infinity, true, PLAYER_YELLOW);
+    if(col === null) return normalAI();
+    return col;
+  }
+
+  function insaneAI(){
+    const [col] = minimax(board, MAX_DEPTH.insane, -Infinity, Infinity, true, PLAYER_YELLOW);
+    if(col === null) return normalAI();
+    return col;
+  }
+
+  function impossibleAI(){
+    const [col] = minimax(board, MAX_DEPTH.impossible, -Infinity, Infinity, true, PLAYER_YELLOW);
+    if(col === null) return normalAI();
+    return col;
+  }
 
   function aiMove(){
-    if(gameState !== 'playing' || currentPlayer !== PLAYER_YELLOW) return;
-    let col = -1;
+    if(gameState !== 'playing') return;
+    let col;
     switch(aiDifficulty){
-      case 'easy': col = easyAI(); break;
+      case 'easy': col = normalAI(); break;
       case 'normal': col = normalAI(); break;
       case 'hard': col = hardAI(); break;
       case 'insane': col = insaneAI(); break;
       case 'impossible': col = impossibleAI(); break;
-      default: col = easyAI(); break;
+      default: col = normalAI();
     }
-    if(col === -1){
-      updateStatus("No valid moves. Draw!");
-      gameState = 'ended';
-      return;
-    }
-
-    const r = placePiece(col, PLAYER_YELLOW);
+    const row = placePiece(col, PLAYER_YELLOW);
     drawBoard();
 
     if(checkWinner(PLAYER_YELLOW)){
+      gameState = 'ended';
       updateStatus("AI wins!");
-      gameState = 'ended';
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
       matchListDiv.style.display = 'block';
       return;
     }
-
     if(isBoardFull()){
-      updateStatus("Draw!");
       gameState = 'ended';
+      updateStatus("Draw!");
       isInMatch = false;
       leaveMatchBtn.disabled = true;
       canvas.style.display = 'none';
       matchListDiv.style.display = 'block';
       return;
     }
-
     switchPlayer();
     updateStatus("Your turn!");
   }
 
-  // --- Match List Rendering and Refresh ---
-
-  function renderMatchList(){
-    if(!currentUser.id || isInMatch){
-      matchListDiv.style.display = 'none';
-      return;
-    }
-    matchListDiv.style.display = 'block';
-    matchListDiv.innerHTML = '';
-
-    const waitingText = document.createElement('div');
-    waitingText.style.marginBottom = '10px';
-    waitingText.textContent = 'Available Matches:';
-    matchListDiv.appendChild(waitingText);
-
-    const matchesRef = db.ref('matches');
-    matchesRef.once('value', snapshot => {
-      if(!snapshot.exists()){
-        matchListDiv.innerHTML += '<div>No matches found.</div>';
-        return;
-      }
-      const matches = snapshot.val();
-      let foundAny = false;
-      const seenMatchIds = new Set();
-
-      for(const key in matches){
-        if(seenMatchIds.has(key)) continue;
-        seenMatchIds.add(key);
-        const match = matches[key];
-        if(match.status === 'waiting'){
-          foundAny = true;
-          if(currentUser.id === match.owner.id) continue; // don't show own matches
-
-          const matchDiv = document.createElement('div');
-          matchDiv.classList.add('matchItem');
-
-          const playersDiv = document.createElement('div');
-          playersDiv.classList.add('matchPlayer');
-
-          // Avatar initials
-          const avatarCircle = document.createElement('div');
-          avatarCircle.classList.add('avatar-circle');
-          avatarCircle.textContent = match.owner.username ? match.owner.username.charAt(0).toUpperCase() : 'O';
-          playersDiv.appendChild(avatarCircle);
-
-          const ownerName = document.createElement('span');
-          ownerName.textContent = match.owner.username || 'Owner';
-          playersDiv.appendChild(ownerName);
-
-          if(match.opponent && match.opponent.username){
-            const oppName = document.createElement('span');
-            oppName.textContent = " vs " + match.opponent.username;
-            playersDiv.appendChild(oppName);
-          }
-
-          matchDiv.appendChild(playersDiv);
-
-          const joinBtn = document.createElement('button');
-          joinBtn.textContent = 'Join';
-          joinBtn.onclick = () => joinMatch(key);
-          matchDiv.appendChild(joinBtn);
-
-          matchListDiv.appendChild(matchDiv);
-        }
-      }
-      if(!foundAny){
-        const noMatchesDiv = document.createElement('div');
-        noMatchesDiv.textContent = 'No available matches.';
-        matchListDiv.appendChild(noMatchesDiv);
-      }
-    });
-  }
-
-  // --- Event Listeners ---
+  // --- UI and Event Listeners ---
 
   usernameInput.addEventListener('input', () => {
-    usernameSubmit.disabled = usernameInput.value.trim().length === 0;
+    usernameSubmit.disabled = usernameInput.value.trim() === '';
   });
 
   usernameSubmit.addEventListener('click', () => {
-    const usernameVal = usernameInput.value.trim();
-    if(!usernameVal) return;
-    currentUser.username = usernameVal;
-    currentUser.id = 'user_' + Math.floor(Math.random()*10000000);
+    currentUser.id = 'user-' + Math.random().toString(36).substring(2, 10);
+    currentUser.username = usernameInput.value.trim();
     usernamePrompt.style.display = 'none';
     menu.style.display = 'block';
-    resetGame();
+    matchListDiv.style.display = 'block';
+    canvas.style.display = 'none';
     renderMatchList();
   });
 
@@ -663,17 +701,9 @@
     gameMode = modeSelect.value;
     if(gameMode === 'ai'){
       aiDifficultyButtons.style.display = 'block';
-      createMatchBtn.textContent = 'Start Game';
-      matchListDiv.style.display = 'none';
     } else {
       aiDifficultyButtons.style.display = 'none';
-      createMatchBtn.textContent = 'Create Match';
-      if(!isInMatch && currentUser.id) {
-        matchListDiv.style.display = 'block';
-        renderMatchList();
-      }
     }
-    resetGame();
   });
 
   aiDifficultyButtons.querySelectorAll('button').forEach(btn => {
@@ -688,7 +718,7 @@
     createMatch();
     if(gameMode === 'ai'){
       canvas.style.display = 'block';
-      matchListDiv.style.display = 'none';
+      updateStatus("Your turn!");
     }
   });
 
@@ -702,7 +732,52 @@
 
   canvas.addEventListener('click', onCanvasClick);
 
-  // --- Init ---
+  function renderMatchList(){
+    if(isInMatch) {
+      matchListDiv.style.display = 'none';
+      return;
+    }
+    matchListDiv.style.display = 'block';
+    db.ref('matches').orderByChild('createdAt').limitToLast(30).once('value', snapshot => {
+      const matches = snapshot.val();
+      matchListDiv.innerHTML = '<h3>Available Matches</h3>';
+      if(!matches) {
+        matchListDiv.innerHTML += '<p>No matches available.</p>';
+        return;
+      }
+      for(const id in matches){
+        const m = matches[id];
+        if(m.status !== 'waiting') continue;
+        if(m.owner.id === currentUser.id) continue; // Do not show own waiting matches
+
+        const div = document.createElement('div');
+        div.className = 'matchItem';
+
+        const ownerDiv = document.createElement('div');
+        ownerDiv.className = 'matchPlayer';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar-circle';
+        avatar.textContent = m.owner.username.charAt(0).toUpperCase();
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = m.owner.username;
+
+        ownerDiv.appendChild(avatar);
+        ownerDiv.appendChild(nameSpan);
+
+        const joinBtn = document.createElement('button');
+        joinBtn.textContent = 'Join';
+        joinBtn.addEventListener('click', () => joinMatch(id));
+
+        div.appendChild(ownerDiv);
+        div.appendChild(joinBtn);
+
+        matchListDiv.appendChild(div);
+      }
+    });
+  }
+
   resetGame();
 
 })();
