@@ -15,6 +15,7 @@
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
+    user-select: none;
   }
   #canvas {
     border: 2px solid #ffaa00;
@@ -22,10 +23,14 @@
     margin-top: 15px;
     background: #222244;
     border-radius: 12px;
+    pointer-events: auto;
+    z-index: 1;
   }
   #status {
     margin: 10px;
     font-size: 18px;
+    user-select: text;
+    z-index: 10;
   }
   #matchList {
     width: 350px;
@@ -35,6 +40,8 @@
     border-radius: 8px;
     padding: 10px;
     margin-top: 20px;
+    user-select: text;
+    z-index: 10;
   }
   .matchItem {
     display: flex;
@@ -69,6 +76,9 @@
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    user-select: none;
+    position: relative;
+    z-index: 1001;
   }
   button:hover:not(:disabled) {
     background: #ffbb33;
@@ -92,9 +102,11 @@
     margin-bottom: 10px;
     border-radius: 6px;
     border: none;
+    user-select: text;
   }
   #menu {
     margin-top: 10px;
+    z-index: 10;
   }
 </style>
 </head>
@@ -156,7 +168,11 @@
   // --- Constants ---
   const PLAYER_NONE = 0, PLAYER_RED = 1, PLAYER_YELLOW = 2;
   const ROWS = 6, COLS = 7;
-  const MAX_DEPTH = {hard: 2, insane: 4, impossible: 6};
+  const MAX_DEPTH = {
+    hard: 3,
+    insane: 5,
+    impossible: 7
+  };
 
   // --- State ---
   let board = [];
@@ -209,14 +225,12 @@
         const x = c * cellSize;
         const y = r * cellSize;
 
-        // Slots background
         ctx.beginPath();
         ctx.fillStyle = '#555577';
         ctx.arc(x + cellSize/2, y + cellSize/2, cellSize/2 - 6, 0, Math.PI*2);
         ctx.fill();
         ctx.closePath();
 
-        // Pieces
         if(board[r][c] !== PLAYER_NONE){
           ctx.beginPath();
           ctx.fillStyle = board[r][c] === PLAYER_RED ? '#ff5555' : '#ffff77';
@@ -231,10 +245,10 @@
     }
   }
 
-  function placePiece(col, player, b=board){
+  function placePiece(col, player){
     for(let r=ROWS-1; r>=0; r--){
-      if(b[r][col] === PLAYER_NONE){
-        b[r][col] = player;
+      if(board[r][col] === PLAYER_NONE){
+        board[r][col] = player;
         return r;
       }
     }
@@ -444,26 +458,16 @@
       updateStatus("You win!");
       if(gameMode === 'pvp') {
         const matchRef = db.ref('matches/'+gameId);
-        matchRef.update({ status: 'ended' });
+        matchRef.update({status:'ended'});
       }
-      isInMatch = false;
-      leaveMatchBtn.disabled = true;
-      canvas.style.display = 'none';
-      matchListDiv.style.display = 'block';
       return;
-    }
-
-    if(isBoardFull()){
+    } else if(isBoardFull()){
       gameState = 'ended';
       updateStatus("Draw!");
-      if(gameMode === 'pvp') {
+      if(gameMode === 'pvp'){
         const matchRef = db.ref('matches/'+gameId);
-        matchRef.update({ status: 'ended' });
+        matchRef.update({status:'ended'});
       }
-      isInMatch = false;
-      leaveMatchBtn.disabled = true;
-      canvas.style.display = 'none';
-      matchListDiv.style.display = 'block';
       return;
     }
 
@@ -471,107 +475,116 @@
 
     if(gameMode === 'pvp'){
       updateMatchBoard();
-      updateStatus("Opponent's turn");
     } else if(gameMode === 'ai'){
-      updateStatus("AI's turn");
+      updateStatus("AI thinking...");
       setTimeout(() => {
         aiMove();
-      }, 600);
+      }, 300);
     }
   }
 
-  // --- AI logic ---
-
-  function getAvailableRowInBoard(b, col){
-    for(let r=ROWS-1; r>=0; r--){
-      if(b[r][col] === PLAYER_NONE) return r;
-    }
-    return -1;
-  }
-
-  function getValidColsInBoard(b){
-    const valid = [];
+  function getValidColumns(b=board){
+    const cols = [];
     for(let c=0; c<COLS; c++){
-      if(getAvailableRowInBoard(b, c) !== -1) valid.push(c);
+      if(b[0][c] === PLAYER_NONE) cols.push(c);
     }
-    return valid;
+    return cols;
   }
 
-  // Heuristic evaluation for board
-  function evaluateBoard(b, player) {
+  function copyBoard(b){
+    return b.map(row => row.slice());
+  }
+
+  // Heuristic evaluation for AI
+  function evaluateWindow(windowArr, player){
     let score = 0;
-    const opponent = player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW;
+    const opponent = player === PLAYER_RED ? PLAYER_YELLOW : PLAYER_RED;
+    const countPlayer = windowArr.filter(v => v === player).length;
+    const countOpponent = windowArr.filter(v => v === opponent).length;
+    const countEmpty = windowArr.filter(v => v === PLAYER_NONE).length;
 
-    function countWindow(window) {
-      let playerCount = 0, oppCount = 0, emptyCount = 0;
-      for (const cell of window) {
-        if (cell === player) playerCount++;
-        else if (cell === opponent) oppCount++;
-        else emptyCount++;
-      }
-      if (playerCount === 4) return 100000;
-      if (playerCount === 3 && emptyCount === 1) return 100;
-      if (playerCount === 2 && emptyCount === 2) return 10;
-      if (oppCount === 3 && emptyCount === 1) return -800;
-      if (oppCount === 2 && emptyCount === 2) return -10;
-      return 0;
+    if(countPlayer === 4){
+      score += 100;
+    } else if(countPlayer === 3 && countEmpty ===1){
+      score += 5;
+    } else if(countPlayer === 2 && countEmpty === 2){
+      score += 2;
     }
-
-    // Horizontal
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS - 3; c++) {
-        const window = [b[r][c], b[r][c+1], b[r][c+2], b[r][c+3]];
-        score += countWindow(window);
-      }
+    if(countOpponent === 3 && countEmpty === 1){
+      score -= 4;
     }
-    // Vertical
-    for (let c = 0; c < COLS; c++) {
-      for (let r = 0; r < ROWS - 3; r++) {
-        const window = [b[r][c], b[r+1][c], b[r+2][c], b[r+3][c]];
-        score += countWindow(window);
-      }
-    }
-    // Diagonal /
-    for (let r = 3; r < ROWS; r++) {
-      for (let c = 0; c < COLS - 3; c++) {
-        const window = [b[r][c], b[r-1][c+1], b[r-2][c+2], b[r-3][c+3]];
-        score += countWindow(window);
-      }
-    }
-    // Diagonal \
-    for (let r = 0; r < ROWS - 3; r++) {
-      for (let c = 0; c < COLS - 3; c++) {
-        const window = [b[r][c], b[r+1][c+1], b[r+2][c+2], b[r+3][c+3]];
-        score += countWindow(window);
-      }
-    }
-
     return score;
   }
 
-  function minimax(b, depth, alpha, beta, maximizingPlayer, player){
-    const validLocations = getValidColsInBoard(b);
-    const isTerminal = checkWinner(PLAYER_RED, b) || checkWinner(PLAYER_YELLOW, b) || validLocations.length === 0;
+  function scorePosition(b, player){
+    let score = 0;
+
+    // Center column preference
+    const centerArray = [];
+    for(let r=0; r<ROWS; r++){
+      centerArray.push(b[r][Math.floor(COLS/2)]);
+    }
+    const centerCount = centerArray.filter(c => c === player).length;
+    score += centerCount * 3;
+
+    // Horizontal
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS-3; c++){
+        const windowArr = [b[r][c],b[r][c+1],b[r][c+2],b[r][c+3]];
+        score += evaluateWindow(windowArr, player);
+      }
+    }
+    // Vertical
+    for(let c=0; c<COLS; c++){
+      for(let r=0; r<ROWS-3; r++){
+        const windowArr = [b[r][c],b[r+1][c],b[r+2][c],b[r+3][c]];
+        score += evaluateWindow(windowArr, player);
+      }
+    }
+    // Pos Diagonal
+    for(let r=0; r<ROWS-3; r++){
+      for(let c=0; c<COLS-3; c++){
+        const windowArr = [b[r][c],b[r+1][c+1],b[r+2][c+2],b[r+3][c+3]];
+        score += evaluateWindow(windowArr, player);
+      }
+    }
+    // Neg Diagonal
+    for(let r=3; r<ROWS; r++){
+      for(let c=0; c<COLS-3; c++){
+        const windowArr = [b[r][c],b[r-1][c+1],b[r-2][c+2],b[r-3][c+3]];
+        score += evaluateWindow(windowArr, player);
+      }
+    }
+    return score;
+  }
+
+  function isTerminalNode(b){
+    return checkWinner(PLAYER_RED, b) || checkWinner(PLAYER_YELLOW, b) || isBoardFull(b);
+  }
+
+  // Minimax with alpha-beta pruning
+  function minimax(b, depth, alpha, beta, maximizingPlayer){
+    const validLocations = getValidColumns(b);
+    const isTerminal = isTerminalNode(b);
 
     if(depth === 0 || isTerminal){
       if(isTerminal){
-        if(checkWinner(player, b)) return [null, 1000000000000];
-        else if(checkWinner(player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW, b)) return [null, -1000000000000];
-        else return [null, 0];
+        if(checkWinner(PLAYER_YELLOW, b)) return {score: 1000000000};
+        else if(checkWinner(PLAYER_RED, b)) return {score: -1000000000};
+        else return {score: 0};
       } else {
-        return [null, evaluateBoard(b, player)];
+        return {score: scorePosition(b, PLAYER_YELLOW)};
       }
     }
 
     if(maximizingPlayer){
       let value = -Infinity;
-      let column = validLocations[Math.floor(Math.random() * validLocations.length)];
+      let column = validLocations[0];
       for(const col of validLocations){
-        const row = getAvailableRowInBoard(b, col);
-        if(row === -1) continue;
-        const boardCopy = b.map(r => r.slice());
-        boardCopy[row][col] = player;
-        const newScore = minimax(boardCopy, depth-1, alpha, beta, false, player)[1];
+        const row = getNextOpenRow(b,col);
+        const bCopy = copyBoard(b);
+        bCopy[row][col] = PLAYER_YELLOW;
+        const newScore = minimax(bCopy, depth-1, alpha, beta, false).score;
         if(newScore > value){
           value = newScore;
           column = col;
@@ -579,17 +592,15 @@
         alpha = Math.max(alpha, value);
         if(alpha >= beta) break;
       }
-      return [column, value];
+      return {column: column, score: value};
     } else {
       let value = Infinity;
-      let column = validLocations[Math.floor(Math.random() * validLocations.length)];
-      const opponent = player === PLAYER_YELLOW ? PLAYER_RED : PLAYER_YELLOW;
+      let column = validLocations[0];
       for(const col of validLocations){
-        const row = getAvailableRowInBoard(b, col);
-        if(row === -1) continue;
-        const boardCopy = b.map(r => r.slice());
-        boardCopy[row][col] = opponent;
-        const newScore = minimax(boardCopy, depth-1, alpha, beta, true, player)[1];
+        const row = getNextOpenRow(b,col);
+        const bCopy = copyBoard(b);
+        bCopy[row][col] = PLAYER_RED;
+        const newScore = minimax(bCopy, depth-1, alpha, beta, true).score;
         if(newScore < value){
           value = newScore;
           column = col;
@@ -597,86 +608,50 @@
         beta = Math.min(beta, value);
         if(alpha >= beta) break;
       }
-      return [column, value];
+      return {column: column, score: value};
     }
   }
 
-  function normalAI(){
-    // Try win, block, or random
-    for(let c=0; c<COLS; c++){
-      const r = getAvailableRowInBoard(board, c);
-      if(r === -1) continue;
-      board[r][c] = PLAYER_YELLOW;
-      if(checkWinner(PLAYER_YELLOW)){
-        board[r][c] = PLAYER_NONE;
-        return c;
-      }
-      board[r][c] = PLAYER_NONE;
+  function getNextOpenRow(b, col){
+    for(let r=ROWS-1; r>=0; r--){
+      if(b[r][col] === PLAYER_NONE) return r;
     }
-    for(let c=0; c<COLS; c++){
-      const r = getAvailableRowInBoard(board, c);
-      if(r === -1) continue;
-      board[r][c] = PLAYER_RED;
-      if(checkWinner(PLAYER_RED)){
-        board[r][c] = PLAYER_NONE;
-        return c;
-      }
-      board[r][c] = PLAYER_NONE;
-    }
-    const validCols = getValidColsInBoard(board);
-    return validCols[Math.floor(Math.random()*validCols.length)];
-  }
-
-  function hardAI(){
-    const [col] = minimax(board, MAX_DEPTH.hard, -Infinity, Infinity, true, PLAYER_YELLOW);
-    if(col === null) return normalAI();
-    return col;
-  }
-
-  function insaneAI(){
-    const [col] = minimax(board, MAX_DEPTH.insane, -Infinity, Infinity, true, PLAYER_YELLOW);
-    if(col === null) return normalAI();
-    return col;
-  }
-
-  function impossibleAI(){
-    const [col] = minimax(board, MAX_DEPTH.impossible, -Infinity, Infinity, true, PLAYER_YELLOW);
-    if(col === null) return normalAI();
-    return col;
+    return -1;
   }
 
   function aiMove(){
-    if(gameState !== 'playing') return;
+    if(gameState !== 'playing' || currentPlayer !== PLAYER_YELLOW) return;
+
     let col;
-    switch(aiDifficulty){
-      case 'easy': col = normalAI(); break;
-      case 'normal': col = normalAI(); break;
-      case 'hard': col = hardAI(); break;
-      case 'insane': col = insaneAI(); break;
-      case 'impossible': col = impossibleAI(); break;
-      default: col = normalAI();
+
+    if(aiDifficulty === 'easy'){
+      // Random valid move
+      const validCols = getValidColumns();
+      col = validCols[Math.floor(Math.random() * validCols.length)];
+    } else if(['normal','hard','insane','impossible'].includes(aiDifficulty)){
+      let depth = 4;
+      if(aiDifficulty === 'normal') depth = 3;
+      else if(aiDifficulty === 'hard') depth = 4;
+      else if(aiDifficulty === 'insane') depth = 5;
+      else if(aiDifficulty === 'impossible') depth = 7;
+
+      const result = minimax(board, depth, -Infinity, Infinity, true);
+      col = result.column;
     }
+
     const row = placePiece(col, PLAYER_YELLOW);
     drawBoard();
 
     if(checkWinner(PLAYER_YELLOW)){
       gameState = 'ended';
       updateStatus("AI wins!");
-      isInMatch = false;
-      leaveMatchBtn.disabled = true;
-      canvas.style.display = 'none';
-      matchListDiv.style.display = 'block';
       return;
-    }
-    if(isBoardFull()){
+    } else if(isBoardFull()){
       gameState = 'ended';
       updateStatus("Draw!");
-      isInMatch = false;
-      leaveMatchBtn.disabled = true;
-      canvas.style.display = 'none';
-      matchListDiv.style.display = 'block';
       return;
     }
+
     switchPlayer();
     updateStatus("Your turn!");
   }
@@ -695,15 +670,12 @@
     matchListDiv.style.display = 'block';
     canvas.style.display = 'none';
     renderMatchList();
+    updateStatus(`Welcome, ${currentUser.username}!`);
   });
 
   modeSelect.addEventListener('change', () => {
     gameMode = modeSelect.value;
-    if(gameMode === 'ai'){
-      aiDifficultyButtons.style.display = 'block';
-    } else {
-      aiDifficultyButtons.style.display = 'none';
-    }
+    aiDifficultyButtons.style.display = gameMode === 'ai' ? 'block' : 'none';
   });
 
   aiDifficultyButtons.querySelectorAll('button').forEach(btn => {
@@ -716,10 +688,6 @@
 
   createMatchBtn.addEventListener('click', () => {
     createMatch();
-    if(gameMode === 'ai'){
-      canvas.style.display = 'block';
-      updateStatus("Your turn!");
-    }
   });
 
   leaveMatchBtn.addEventListener('click', () => {
@@ -732,52 +700,54 @@
 
   canvas.addEventListener('click', onCanvasClick);
 
+  // --- Match List Rendering ---
   function renderMatchList(){
-    if(isInMatch) {
-      matchListDiv.style.display = 'none';
-      return;
-    }
-    matchListDiv.style.display = 'block';
-    db.ref('matches').orderByChild('createdAt').limitToLast(30).once('value', snapshot => {
-      const matches = snapshot.val();
+    if(!currentUser.id) return;
+    matchListDiv.innerHTML = '<h3>Available Matches</h3>';
+
+    const matchesRef = db.ref('matches');
+    matchesRef.once('value', snapshot => {
+      const data = snapshot.val();
       matchListDiv.innerHTML = '<h3>Available Matches</h3>';
-      if(!matches) {
+      if(!data){
         matchListDiv.innerHTML += '<p>No matches available.</p>';
         return;
       }
-      for(const id in matches){
-        const m = matches[id];
-        if(m.status !== 'waiting') continue;
-        if(m.owner.id === currentUser.id) continue; // Do not show own waiting matches
+      let count = 0;
+      for(const key in data){
+        const match = data[key];
+        if(match.status === 'waiting' && match.owner.id !== currentUser.id){
+          count++;
+          const div = document.createElement('div');
+          div.className = 'matchItem';
 
-        const div = document.createElement('div');
-        div.className = 'matchItem';
+          const ownerName = document.createElement('div');
+          ownerName.className = 'matchPlayer';
+          const avatar = document.createElement('div');
+          avatar.className = 'avatar-circle';
+          avatar.textContent = match.owner.username[0].toUpperCase();
+          ownerName.appendChild(avatar);
+          const usernameSpan = document.createElement('span');
+          usernameSpan.textContent = match.owner.username;
+          ownerName.appendChild(usernameSpan);
 
-        const ownerDiv = document.createElement('div');
-        ownerDiv.className = 'matchPlayer';
+          const joinBtn = document.createElement('button');
+          joinBtn.textContent = 'Join';
+          joinBtn.onclick = () => joinMatch(key);
 
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar-circle';
-        avatar.textContent = m.owner.username.charAt(0).toUpperCase();
+          div.appendChild(ownerName);
+          div.appendChild(joinBtn);
 
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = m.owner.username;
-
-        ownerDiv.appendChild(avatar);
-        ownerDiv.appendChild(nameSpan);
-
-        const joinBtn = document.createElement('button');
-        joinBtn.textContent = 'Join';
-        joinBtn.addEventListener('click', () => joinMatch(id));
-
-        div.appendChild(ownerDiv);
-        div.appendChild(joinBtn);
-
-        matchListDiv.appendChild(div);
+          matchListDiv.appendChild(div);
+        }
+      }
+      if(count === 0){
+        matchListDiv.innerHTML += '<p>No matches available to join.</p>';
       }
     });
   }
 
+  // --- Init ---
   resetGame();
 
 })();
