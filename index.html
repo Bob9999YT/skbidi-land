@@ -3,59 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mini Mario Kart Online</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <title>Mini Mario Kart</title>
+<script src="https://sigma-dumahcart-server.vercel.app/socket.io/socket.io.js"></script>
   <style>
-    body, html { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#222; color:#fff; }
-    canvas { background:#333; display:block; margin:auto; }
-    .ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
-    .screen { position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; background:rgba(0,0,0,0.7); animation:fadeIn 0.5s; }
-    .screen.hidden { display:none; }
-    button { font-size:1.2rem; padding:10px 20px; margin:5px; cursor:pointer; pointer-events:auto; }
-    button:hover { background:#555; }
-    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
-    #lobbyList { max-height:150px; overflow:auto; margin:10px 0; width:80%; text-align:left; }
-    #lobbyList button { width:100%; text-align:left; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1f1f2f, #1c1c24);
+      color: #fff;
+    }
+
+    canvas {
+      background: #222;
+      display: block;
+      margin: auto;
+      border: 4px solid #444;
+      border-radius: 12px;
+    }
+
+    .ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .screen {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: rgba(0, 0, 0, 0.6);
+      animation: fadeIn 0.5s ease;
+    }
+
+    .screen.hidden {
+      display: none;
+    }
+
+    button {
+      pointer-events: auto;
+      padding: 14px 30px;
+      margin: 10px;
+      font-size: 1.2rem;
+      background: #444;
+      color: #fff;
+      border: 2px solid #666;
+      border-radius: 12px;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #666;
+      transform: scale(1.05);
+      border-color: #aaa;
+    }
+
+    h1, h2 {
+      margin-bottom: 16px;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    #lobbyList {
+      max-height: 200px;
+      overflow-y: auto;
+      width: 80%;
+    }
+
+    #lobbyList button {
+      width: 100%;
+      text-align: left;
+      background: #333;
+      margin: 4px 0;
+    }
   </style>
 </head>
 <body>
   <canvas id="game" width="640" height="480"></canvas>
   <div class="ui">
-    <!-- Title -->
     <div id="title" class="screen">
       <h1>Mini Mario Kart</h1>
       <button id="btnSingle">Single Player</button>
       <button id="btnMulti">Multiplayer</button>
     </div>
-    <!-- Character Select -->
     <div id="charSelect" class="screen hidden">
       <h2>Select Your Racer</h2>
-      <div>
-        <button class="charBtn" data-color="red">Red</button>
-        <button class="charBtn" data-color="blue">Blue</button>
-        <button class="charBtn" data-color="green">Green</button>
-      </div>
+      <button class="charBtn" data-color="red">Red</button>
+      <button class="charBtn" data-color="blue">Blue</button>
+      <button class="charBtn" data-color="green">Green</button>
     </div>
-    <!-- Track Select -->
     <div id="trackSelect" class="screen hidden">
       <h2>Select Track</h2>
       <div id="trackButtons"></div>
     </div>
-    <!-- Difficulty -->
     <div id="diffSelect" class="screen hidden">
       <h2>Select Difficulty</h2>
       <div id="diffButtons"></div>
     </div>
-    <!-- Multiplayer Lobby -->
     <div id="lobby" class="screen hidden">
       <h2>Multiplayer Lobby</h2>
       <button id="btnHost">Host Game</button>
       <div id="lobbyList"></div>
       <button id="btnBackLobby">Back</button>
     </div>
-    <!-- Countdown -->
     <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
-    <!-- HUD -->
     <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
       <div id="lapInfo"></div>
       <div id="posInfo"></div>
