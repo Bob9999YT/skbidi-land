@@ -1,137 +1,230 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Mini Mario Kart</title>
-<style>
-  body, html { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#222; color:#fff; }
-  canvas { background:#333; display:block; margin:auto; }
-  .ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
-  .menu, .screen { position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; background:rgba(0,0,0,0.7); animation:fadeIn 0.5s; }
-  .menu.hidden, .screen.hidden { display:none; }
-  button { font-size:1.2rem; padding:10px 20px; margin:8px; cursor:pointer; }
-  button:hover { background:#555; }
-  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mini Mario Kart Online</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body, html { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#222; color:#fff; }
+    canvas { background:#333; display:block; margin:auto; }
+    .ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+    .screen { position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; background:rgba(0,0,0,0.7); animation:fadeIn 0.5s; }
+    .screen.hidden { display:none; }
+    button { font-size:1.2rem; padding:10px 20px; margin:5px; cursor:pointer; pointer-events:auto; }
+    button:hover { background:#555; }
+    @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+    #lobbyList { max-height:150px; overflow:auto; margin:10px 0; width:80%; text-align:left; }
+    #lobbyList button { width:100%; text-align:left; }
+  </style>
 </head>
 <body>
-<canvas id="game" width="640" height="480"></canvas>
-<div class="ui">
-  <div id="titleScreen" class="screen">
-    <h1>Mini Mario Kart</h1>
-    <button id="startBtn">Start Grand Prix</button>
+  <canvas id="game" width="640" height="480"></canvas>
+  <div class="ui">
+    <!-- Title -->
+    <div id="title" class="screen">
+      <h1>Mini Mario Kart</h1>
+      <button id="btnSingle">Single Player</button>
+      <button id="btnMulti">Multiplayer</button>
+    </div>
+    <!-- Character Select -->
+    <div id="charSelect" class="screen hidden">
+      <h2>Select Your Racer</h2>
+      <div>
+        <button class="charBtn" data-color="red">Red</button>
+        <button class="charBtn" data-color="blue">Blue</button>
+        <button class="charBtn" data-color="green">Green</button>
+      </div>
+    </div>
+    <!-- Track Select -->
+    <div id="trackSelect" class="screen hidden">
+      <h2>Select Track</h2>
+      <div id="trackButtons"></div>
+    </div>
+    <!-- Difficulty -->
+    <div id="diffSelect" class="screen hidden">
+      <h2>Select Difficulty</h2>
+      <div id="diffButtons"></div>
+    </div>
+    <!-- Multiplayer Lobby -->
+    <div id="lobby" class="screen hidden">
+      <h2>Multiplayer Lobby</h2>
+      <button id="btnHost">Host Game</button>
+      <div id="lobbyList"></div>
+      <button id="btnBackLobby">Back</button>
+    </div>
+    <!-- Countdown -->
+    <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
+    <!-- HUD -->
+    <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
+      <div id="lapInfo"></div>
+      <div id="posInfo"></div>
+      <div id="statusInfo"></div>
+    </div>
   </div>
-  <div id="characterSelect" class="screen hidden">
-    <h2>Select Your Racer</h2>
-    <div><button class="charBtn" data-char="red">Red</button><button class="charBtn" data-char="blue">Blue</button></div>
-  </div>
-  <div id="trackSelect" class="screen hidden">
-    <h2>Select Track</h2>
-    <div id="trackButtons"></div>
-  </div>
-  <div id="difficultySelect" class="screen hidden">
-    <h2>Select Difficulty</h2>
-    <div id="diffButtons"></div>
-  </div>
-  <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
-  <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
-    <div id="lapInfo"></div><div id="raceInfo"></div><div id="posInfo"></div>
-  </div>
-</div>
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const screens = {
-  title: document.getElementById('titleScreen'),
-  char: document.getElementById('characterSelect'),
-  track: document.getElementById('trackSelect'),
-  diff: document.getElementById('difficultySelect'),
-  countdown: document.getElementById('countdown'),
-  hud: document.getElementById('hud')
-};
+  <script>
+    //
+    // ——— Setup ———
+    //
+    const socket = io(); // assumes server on same origin
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const screens = {
+      title: document.getElementById('title'),
+      char: document.getElementById('charSelect'),
+      track: document.getElementById('trackSelect'),
+      diff: document.getElementById('diffSelect'),
+      lobby: document.getElementById('lobby'),
+      countdown: document.getElementById('countdown'),
+      hud: document.getElementById('hud')
+    };
+    const states = {};
+    let mode = 'single'; // or 'multi'
+    const tracks = ['Green','Desert','Snow','City','Beach'];
+    const diffs = ['Easy','Normal','Medium','Hard','Insane'];
 
-let state = {playerChar:'red', trackIdx:0, diff:'Easy', race:0, laps:3, totalRaces:12, position:1};
-const tracks = ['Green', 'Desert', 'Snow', 'City', 'Beach'];
-const diffs = ['Easy','Normal','Medium','Hard','Insane'];
+    function show(k){ Object.values(screens).forEach(s=>s.classList.add('hidden')); screens[k].classList.remove('hidden'); }
 
-function show(screen){ for(let k in screens) screens[k].classList.add('hidden'); screens[screen].classList.remove('hidden'); }
-screens.title.querySelector('#startBtn').onclick = () => show('char');
-screens.char.querySelectorAll('.charBtn').forEach(btn=>{
-  btn.onclick=e=>{
-    state.playerChar=e.target.dataset.char;
-    show('track');
-  };
-});
-const trackButtons = document.getElementById('trackButtons');
-tracks.forEach((t,i)=>{
-  let b=document.createElement('button');
-  b.textContent=t; b.onclick=()=>{
-    state.trackIdx=i;
-    show('diff');
-  };
-  trackButtons.appendChild(b);
-});
-const diffButtons = document.getElementById('diffButtons');
-diffs.forEach(d=>{
-  let b=document.createElement('button');
-  b.textContent=d; b.onclick=()=>{
-    state.diff=d; startRace();
-  };
-  diffButtons.appendChild(b);
-});
+    // title
+    document.getElementById('btnSingle').onclick = () => {
+      mode='single';
+      show('char');
+    };
+    document.getElementById('btnMulti').onclick = () => {
+      mode='multi';
+      fetchLobbies();
+      show('lobby');
+    };
 
-function startRace(){
-  state.race++;
-  state.currentLap=1;
-  state.position=1;
-  show('countdown');
-  playCountdown(3, () => {
-    show('hud');
-    loop();
-  });
-}
+    // character
+    document.querySelectorAll('.charBtn').forEach(b=>{
+      b.onclick=()=>{
+        states.color=b.dataset.color;
+        if(mode==='single') show('track');
+        else show('lobby');
+      };
+    });
 
-function playCountdown(c, done){
-  const ct = document.getElementById('countText');
-  ct.textContent = c>0?c:'GO!';
-  setTimeout(_=>{
-    if(c>0) playCountdown(c-1,done);
-    else done();
-  },1000);
-}
+    // track
+    const trackButtons = document.getElementById('trackButtons');
+    tracks.forEach((t,i)=> {
+      const b = document.createElement('button');
+      b.textContent=t;
+      b.onclick=()=>{ states.track=i; mode==='single'?show('diff'):null; };
+      trackButtons.appendChild(b);
+    });
+    // difficulty
+    const diffButtons = document.getElementById('diffButtons');
+    diffs.forEach(d=>{
+      const b = document.createElement('button');
+      b.textContent=d;
+      b.onclick=()=>{
+        states.diff=d; states.laps=3; states.trackCount=0; states.pos=1;
+        startRace();
+      };
+      diffButtons.appendChild(b);
+    });
 
-function loop(){
-  update();
-  draw();
-  if(state.currentLap <= state.laps) requestAnimationFrame(loop);
-  else finishRace();
-}
+    //
+    // ——— Multiplayer Lobby ———
+    //
+    const lobbyList = document.getElementById('lobbyList');
+    document.getElementById('btnHost').onclick = () => {
+      socket.emit('hostLobby', { track:0, color: states.color });
+    };
+    document.getElementById('btnBackLobby').onclick = () => show('title');
 
-function finishRace(){
-  alert(`Race ${state.race}/${state.totalRaces} done! Position: ${state.position}`);
-  if(state.race < state.totalRaces) show('track');
-  else alert('Grand Prix Completed!');
-}
+    socket.on('lobbies', list => {
+      lobbyList.innerHTML = '';
+      list.forEach(l=> {
+        const b = document.createElement('button');
+        b.textContent = `Room ${l.id} (${l.count} players)`;
+        b.onclick=()=> {
+          socket.emit('joinLobby', { id:l.id, color:states.color });
+        };
+        lobbyList.appendChild(b);
+      });
+    });
 
-function update(){
-  // TODO: add player control, AI behavior based on state.diff
-}
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // Draw background placeholder
-  ctx.fillStyle=['#0a0','#a60','#0af','#666','#fa0'][state.trackIdx];
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = state.playerChar;
-  ctx.fillRect(300,220,40,30);
-  screens.hud.querySelector('#lapInfo').textContent = `Lap ${state.currentLap}/${state.laps}`;
-  screens.hud.querySelector('#raceInfo').textContent = `Race ${state.race}/${state.totalRaces}`;
-  screens.hud.querySelector('#posInfo').textContent = `Pos: ${state.position}`;
-}
+    socket.on('joinedLobby', data => {
+      states.lobbyId=data.id;
+      show('countdown');
+      states.laps=3; states.trackCount=0;
+      playCountdown(3, ()=> loop(true));
+    });
 
-// Keyboard control
-const keys={}; window.addEventListener('keydown', e=>keys[e.key]=1);
-window.addEventListener('keyup', e=>keys[e.key]=0);
-</script>
+    //
+    // ——— Race Flow ———
+    //
+    function startRace(){
+      playCountdown(3, ()=> loop(false));
+    }
+    function playCountdown(c, done){
+      const ct = document.getElementById('countText');
+      show('countdown');
+      ct.textContent = c>0?c:'GO!';
+      setTimeout(()=>{
+        if(c>0) playCountdown(c-1,done);
+        else { show('hud'); done(); }
+      },1000);
+    }
+
+    //
+    // ——— Main Loop ———
+    //
+    const keys = {};
+    window.onkeydown = e=> keys[e.key]=1;
+    window.onkeyup   = e=> keys[e.key]=0;
+
+    function loop(isMulti){
+      update(isMulti);
+      draw();
+      if(states.trackCount < tracks.length) requestAnimationFrame(()=>loop(isMulti));
+      else finishGP(isMulti);
+    }
+
+    function update(isMulti){
+      // simple physics
+      states.x = (states.x||320) + ((keys.ArrowRight?2:keys.ArrowLeft?-2:0));
+      states.y = (states.y||240) + ((keys.ArrowUp? -2:keys.ArrowDown?2:0));
+      // wrap
+      states.x = (states.x+640)%640;
+      states.y = (states.y+480)%480;
+
+      if(isMulti){
+        socket.emit('playerMove', { x:states.x, y:states.y });
+      }
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,640,480);
+      ctx.fillStyle = ['#0a0','#a60','#0af','#666','#fa0'][states.track||0];
+      ctx.fillRect(0,0,640,480);
+      ctx.fillStyle = states.color||'red';
+      ctx.fillRect((states.x||320)-10,(states.y||240)-10,20,20);
+      document.getElementById('lapInfo').textContent = '';
+      document.getElementById('posInfo').textContent = '';
+      document.getElementById('statusInfo').textContent = '';
+    }
+
+    function finishGP(isMulti){
+      alert((isMulti?'Online ':'Single ')+'Grand Prix Finished 🤝');
+      show('title');
+    }
+
+    //
+    // ——— Lobby Refresh ———
+    //
+    function fetchLobbies(){
+      socket.emit('listLobbies');
+    }
+    socket.on('updateLobbies',fetchLobbies);
+
+    //
+    // ——— Connect errors ———
+    //
+    socket.on('connect_error', e=>alert('Cannot connect to server'));
+
+  </script>
 </body>
 </html>
