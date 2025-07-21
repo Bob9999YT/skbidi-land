@@ -3,25 +3,30 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>dumb ah kart</title>
+<title>Firebase Mario Kart</title>
 <style>
   body, html {
     margin: 0; padding: 0; overflow: hidden;
     font-family: 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #1f1f2f, #1c1c24);
     color: #fff;
+    position: relative;
+    height: 100vh;
   }
   canvas {
-    background: #222;
+    background: transparent;
     display: block;
     margin: auto;
     border: 4px solid #444;
     border-radius: 12px;
+    position: relative;
+    z-index: 5;
   }
   .ui {
     position: absolute; top: 0; left: 0;
     width: 100%; height: 100%;
     pointer-events: none;
+    z-index: 10;
   }
   .screen {
     position: absolute; width: 100%; height: 100%;
@@ -29,6 +34,7 @@
     flex-direction: column;
     background: rgba(0,0,0,0.6);
     animation: fadeIn 0.5s ease;
+    pointer-events: auto;
   }
   .screen.hidden { display: none; }
   button {
@@ -57,52 +63,126 @@
     from {opacity:0; transform: scale(0.98);}
     to {opacity:1; transform: scale(1);}
   }
+
+  /* Title screen background image */
+  #title {
+    position: relative;
+    overflow: hidden;
+  }
+  #title::before {
+    content: "";
+    background-image: url("https://cdn.discordapp.com/attachments/1135656348193927232/1396932362234888395/vxpddlq.png?ex=687fe224&is=687e90a4&hm=873586f8ea3811e990e65e571e21dcdf758e764aeb3c220e036e3e68b5f86193&");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.5;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 35vw;
+    height: 35vw;
+    max-width: 300px;
+    max-height: 300px;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+  }
+
+  /* Road container */
+  #road {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 400px;
+    border-radius: 40px;
+    background: transparent;
+    z-index: 1;
+    pointer-events: none;
+  }
+  /* Road styles for each track */
+  .track-green {
+    background:
+      linear-gradient(to right, transparent 45%, #3a8e3a 45%, #3a8e3a 55%, transparent 55%),
+      linear-gradient(to bottom, transparent 45%, #3a8e3a 45%, #3a8e3a 55%, transparent 55%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+  .track-desert {
+    background:
+      linear-gradient(to right, transparent 40%, #c2b280 40%, #c2b280 60%, transparent 60%),
+      linear-gradient(to bottom, transparent 40%, #c2b280 40%, #c2b280 60%, transparent 60%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+  .track-snow {
+    background:
+      linear-gradient(to right, transparent 42%, #aad4f5 42%, #aad4f5 58%, transparent 58%),
+      linear-gradient(to bottom, transparent 42%, #aad4f5 42%, #aad4f5 58%, transparent 58%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+  .track-city {
+    background:
+      linear-gradient(to right, transparent 43%, #555555 43%, #555555 57%, transparent 57%),
+      linear-gradient(to bottom, transparent 43%, #555555 43%, #555555 57%, transparent 57%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+  .track-beach {
+    background:
+      linear-gradient(to right, transparent 40%, #fcd57e 40%, #fcd57e 60%, transparent 60%),
+      linear-gradient(to bottom, transparent 40%, #fcd57e 40%, #fcd57e 60%, transparent 60%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+
 </style>
 </head>
 <body>
-<canvas id="game" width="640" height="480"></canvas>
-<div class="ui">
-  <div id="title" class="screen">
-    <h1>Firebase Mario Kart</h1>
-    <button id="btnSingle">Single Player</button>
-    <button id="btnMulti">Multiplayer</button>
-  </div>
-  <div id="charSelect" class="screen hidden">
-    <h2>Select Your Racer</h2>
-    <button class="charBtn" data-color="red">Red</button>
-    <button class="charBtn" data-color="blue">Blue</button>
-    <button class="charBtn" data-color="green">Green</button>
-  </div>
-  <div id="trackSelect" class="screen hidden">
-    <h2>Select Track</h2>
-    <button data-track="0">Green</button>
-    <button data-track="1">Desert</button>
-    <button data-track="2">Snow</button>
-    <button data-track="3">City</button>
-    <button data-track="4">Beach</button>
-  </div>
-  <div id="diffSelect" class="screen hidden">
-    <h2>Select Difficulty</h2>
-    <button data-diff="Easy">Easy</button>
-    <button data-diff="Normal">Normal</button>
-    <button data-diff="Medium">Medium</button>
-    <button data-diff="Hard">Hard</button>
-    <button data-diff="Insane">Insane</button>
-  </div>
-  <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
-  <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
-    <div id="lapInfo"></div>
-    <div id="posInfo"></div>
-    <div id="statusInfo"></div>
-  </div>
-</div>
+  <canvas id="game" width="640" height="480"></canvas>
+  <div id="road"></div>
 
-<!-- Firebase SDK (compat version) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <div class="ui">
+    <div id="title" class="screen">
+      <h1>Firebase Mario Kart</h1>
+      <button id="btnSingle">Single Player</button>
+      <button id="btnMulti">Multiplayer</button>
+    </div>
+    <div id="charSelect" class="screen hidden">
+      <h2>Select Your Racer</h2>
+      <button class="charBtn" data-color="red">Red</button>
+      <button class="charBtn" data-color="blue">Blue</button>
+      <button class="charBtn" data-color="green">Green</button>
+    </div>
+    <div id="trackSelect" class="screen hidden">
+      <h2>Select Track</h2>
+      <button data-track="0">Green</button>
+      <button data-track="1">Desert</button>
+      <button data-track="2">Snow</button>
+      <button data-track="3">City</button>
+      <button data-track="4">Beach</button>
+    </div>
+    <div id="diffSelect" class="screen hidden">
+      <h2>Select Difficulty</h2>
+      <button data-diff="Easy">Easy</button>
+      <button data-diff="Normal">Normal</button>
+      <button data-diff="Medium">Medium</button>
+      <button data-diff="Hard">Hard</button>
+      <button data-diff="Insane">Insane</button>
+    </div>
+    <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
+    <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
+      <div id="lapInfo"></div>
+      <div id="posInfo"></div>
+      <div id="statusInfo"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat version) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
 <script>
-  // Your Firebase config with databaseURL included
   const firebaseConfig = {
     apiKey: "AIzaSyDLnCLlDiBH08e8EMKAdeY4ljtwtae9gjw",
     authDomain: "skbiidi-sigma.firebaseapp.com",
@@ -113,36 +193,38 @@
     appId: "1:414662564646:web:6f1a3e294e1c404a017fe7",
     measurementId: "G-BRW7T04J61"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // UI references
+  // UI refs
   const screens = {
     title: document.getElementById('title'),
     char: document.getElementById('charSelect'),
     track: document.getElementById('trackSelect'),
     diff: document.getElementById('diffSelect'),
     countdown: document.getElementById('countdown'),
-    hud: document.getElementById('hud')
+    hud: document.getElementById('hud'),
   };
   function show(name){
-    Object.values(screens).forEach(s=>s.classList.add('hidden'));
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
     screens[name].classList.remove('hidden');
   }
 
-  // Game variables
-  let playerId = 'dumah-' + Math.floor(Math.random()*1000000);
+  const road = document.getElementById('road');
+
+  // Game vars
+  let playerId = 'player-' + Math.floor(Math.random()*1000000);
   let players = {};
-  let localPlayer = { x:320, y:240, color:'red', lap:0 };
+  let localPlayer = { x:320, y:240, color:'red', lap:0, ai: false };
   let keys = {};
   let raceStarted = false;
   let lapsToComplete = 3;
+  let multiplayer = false;
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
-  // UI buttons logic
+  // Title buttons
   document.getElementById('btnSingle').onclick = () => {
     multiplayer = false;
     show('char');
@@ -152,8 +234,7 @@
     show('char');
   };
 
-  let multiplayer = false;
-
+  // Character selection
   document.querySelectorAll('.charBtn').forEach(b => {
     b.onclick = () => {
       localPlayer.color = b.dataset.color;
@@ -161,9 +242,11 @@
     };
   });
 
+  // Track selection
   document.querySelectorAll('#trackSelect button').forEach(b => {
     b.onclick = () => {
       localPlayer.track = parseInt(b.dataset.track);
+      applyTrackBackground(localPlayer.track);
       if(!multiplayer){
         show('diff');
       } else {
@@ -172,6 +255,7 @@
     };
   });
 
+  // Difficulty selection
   document.querySelectorAll('#diffSelect button').forEach(b => {
     b.onclick = () => {
       localPlayer.difficulty = b.dataset.diff;
@@ -180,32 +264,85 @@
   });
 
   // Movement keys
-  window.onkeydown = e => { keys[e.key] = true; }
-  window.onkeyup = e => { keys[e.key] = false; }
+  window.onkeydown = e => { keys[e.key] = true; };
+  window.onkeyup = e => { keys[e.key] = false; };
 
-  // Firebase listeners for multiplayer
-  if (multiplayer) {
+  // Apply road style for track UI
+  function applyTrackBackground(trackIndex){
+    road.className = '';
+    switch(trackIndex){
+      case 0: road.classList.add('track-green'); break;
+      case 1: road.classList.add('track-desert'); break;
+      case 2: road.classList.add('track-snow'); break;
+      case 3: road.classList.add('track-city'); break;
+      case 4: road.classList.add('track-beach'); break;
+      default: road.style.background = 'transparent';
+    }
+  }
+
+  // AI racers data
+  const aiCount = 11;
+  let aiRacers = [];
+
+  function createAIRacers(){
+    aiRacers = [];
+    for(let i = 0; i < aiCount; i++){
+      aiRacers.push({
+        id: 'ai-' + i,
+        x: 320 + Math.cos(i * 2 * Math.PI / aiCount) * 100 + (Math.random()*20-10),
+        y: 240 + Math.sin(i * 2 * Math.PI / aiCount) * 100 + (Math.random()*20-10),
+        color: `hsl(${i * 30}, 80%, 60%)`,
+        lap: 0,
+        angle: 0,
+        speed: 1 + Math.random() * 1,
+        ai: true,
+        track: localPlayer.track || 0,
+        crossedLine: false,
+      });
+    }
+  }
+
+  function updateAI(){
+    for(let ai of aiRacers){
+      ai.angle += (Math.random() * 0.05 + 0.02) * ai.speed;
+      ai.x = 320 + Math.cos(ai.angle) * 100;
+      ai.y = 240 + Math.sin(ai.angle) * 100;
+
+      // Lap counting for AI (cross top line y < 150)
+      if(ai.y < 150 && !ai.crossedLine){
+        ai.lap++;
+        ai.crossedLine = true;
+      }
+      if(ai.y > 180){
+        ai.crossedLine = false;
+      }
+    }
+  }
+
+  // Firebase multiplayer
+  if(multiplayer){
     db.ref('players').on('value', snapshot => {
       players = snapshot.val() || {};
       if (!players[playerId]) players[playerId] = localPlayer;
       draw();
     });
+
+    setInterval(() => {
+      if(raceStarted){
+        db.ref('players/' + playerId).set(localPlayer);
+      }
+    }, 100);
   }
 
-  // Write own position every 100ms for multiplayer
-  setInterval(() => {
-    if(multiplayer && raceStarted){
-      db.ref('players/' + playerId).set(localPlayer);
-    }
-  }, 100);
-
+  // Start the race countdown and loop
   function startRace(){
     show('countdown');
+    createAIRacers();
     let count = 3;
     const countdownEl = document.getElementById('countText');
 
-    function tick() {
-      countdownEl.textContent = count > 0 ? count : 'KYS!';
+    function tick(){
+      countdownEl.textContent = count > 0 ? count : 'GO!';
       if(count <= 0){
         raceStarted = true;
         show('hud');
@@ -217,69 +354,87 @@
     tick();
   }
 
-  // Main game loop
+  // Main loop
   function loop(){
     update();
     draw();
     if(localPlayer.lap >= lapsToComplete){
-      alert('NI-');
+      alert('Race finished! Thanks for playing.');
       resetGame();
       return;
     }
     requestAnimationFrame(loop);
   }
 
+  // Update game state
   function update(){
     if(!raceStarted) return;
+
+    // Player controls
     if(keys.ArrowUp) localPlayer.y -= 3;
     if(keys.ArrowDown) localPlayer.y += 3;
     if(keys.ArrowLeft) localPlayer.x -= 3;
     if(keys.ArrowRight) localPlayer.x += 3;
 
-    // Keep player inside canvas bounds
-    localPlayer.x = Math.min(Math.max(localPlayer.x, 10), canvas.width-10);
-    localPlayer.y = Math.min(Math.max(localPlayer.y, 10), canvas.height-10);
+    // Clamp player position
+    localPlayer.x = Math.min(Math.max(localPlayer.x, 10), canvas.width - 10);
+    localPlayer.y = Math.min(Math.max(localPlayer.y, 10), canvas.height - 10);
 
-    // Simple lap counting based on y position crossing top (just demo logic)
-    if(localPlayer.y < 15 && !localPlayer.crossedLine){
+    // Lap counting for player (cross top line y < 150)
+    if(localPlayer.y < 150 && !localPlayer.crossedLine){
       localPlayer.lap++;
       localPlayer.crossedLine = true;
     }
-    if(localPlayer.y > 50){
+    if(localPlayer.y > 180){
       localPlayer.crossedLine = false;
     }
+
+    // Update AI
+    updateAI();
   }
 
+  // Draw game
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // Draw track background (just color by track)
-    const trackColors = ['#0a0','#a60','#0af','#666','#fa0'];
-    ctx.fillStyle = trackColors[localPlayer.track || 0];
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // Road is handled by #road div, canvas background transparent
 
-    // Draw all players
-    for(let id in players){
-      const p = players[id];
+    // Draw players & AI
+    // Collect all racers
+    const allRacers = multiplayer
+      ? Object.values(players)
+      : [localPlayer, ...aiRacers];
+
+    // Sort by lap descending for position display (simple)
+    allRacers.sort((a,b) => b.lap - a.lap);
+
+    allRacers.forEach((p,i) => {
       ctx.fillStyle = p.color || 'red';
-      ctx.fillRect(p.x-10, p.y-10, 20, 20);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(id === playerId ? 'You' : 'Player', p.x-10, p.y-15);
-    }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+      ctx.fill();
 
-    // HUD info
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.ai ? 'AI' : (p === localPlayer ? 'You' : 'P'), p.x, p.y - 18);
+    });
+
+    // HUD update
     document.getElementById('lapInfo').textContent = `Lap: ${localPlayer.lap}/${lapsToComplete}`;
-    document.getElementById('posInfo').textContent = `Position: 1`; // No ranking calc here for simplicity
+    document.getElementById('posInfo').textContent = `Position: ${allRacers.indexOf(localPlayer) + 1} / ${allRacers.length}`;
     document.getElementById('statusInfo').textContent = multiplayer ? 'Multiplayer' : 'Single Player';
   }
 
+  // Reset game state
   function resetGame(){
     raceStarted = false;
     localPlayer.lap = 0;
     localPlayer.x = 320;
     localPlayer.y = 240;
+    localPlayer.crossedLine = false;
     show('title');
-    if(multiplayer) {
+    if(multiplayer){
       db.ref('players/' + playerId).remove();
     }
   }
