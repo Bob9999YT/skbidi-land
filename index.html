@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Firebase Mario Kart</title>
+<title>dumb ah kart</title>
 <style>
   body, html {
     margin: 0; padding: 0; overflow: hidden;
@@ -132,7 +132,7 @@
   }
 
   // Game variables
-  let playerId = 'player-' + Math.floor(Math.random()*1000000);
+  let playerId = 'dumah-' + Math.floor(Math.random()*1000000);
   let players = {};
   let localPlayer = { x:320, y:240, color:'red', lap:0 };
   let keys = {};
@@ -205,7 +205,7 @@
     const countdownEl = document.getElementById('countText');
 
     function tick() {
-      countdownEl.textContent = count > 0 ? count : 'GO!';
+      countdownEl.textContent = count > 0 ? count : 'KYS!';
       if(count <= 0){
         raceStarted = true;
         show('hud');
@@ -222,7 +222,7 @@
     update();
     draw();
     if(localPlayer.lap >= lapsToComplete){
-      alert('Race finished! Thanks for playing.');
+      alert('NI-');
       resetGame();
       return;
     }
