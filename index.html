@@ -1,295 +1,288 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mini Mario Kart</title>
-<script src="https://sigma-dumahcart-server.vercel.app/socket.io/socket.io.js"></script>
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #1f1f2f, #1c1c24);
-      color: #fff;
-    }
-
-    canvas {
-      background: #222;
-      display: block;
-      margin: auto;
-      border: 4px solid #444;
-      border-radius: 12px;
-    }
-
-    .ui {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-
-    .screen {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      background: rgba(0, 0, 0, 0.6);
-      animation: fadeIn 0.5s ease;
-    }
-
-    .screen.hidden {
-      display: none;
-    }
-
-    button {
-      pointer-events: auto;
-      padding: 14px 30px;
-      margin: 10px;
-      font-size: 1.2rem;
-      background: #444;
-      color: #fff;
-      border: 2px solid #666;
-      border-radius: 12px;
-      transition: all 0.25s ease;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #666;
-      transform: scale(1.05);
-      border-color: #aaa;
-    }
-
-    h1, h2 {
-      margin-bottom: 16px;
-      animation: fadeIn 0.4s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.98); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    #lobbyList {
-      max-height: 200px;
-      overflow-y: auto;
-      width: 80%;
-    }
-
-    #lobbyList button {
-      width: 100%;
-      text-align: left;
-      background: #333;
-      margin: 4px 0;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Firebase Mario Kart</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1f1f2f, #1c1c24);
+    color: #fff;
+  }
+  canvas {
+    background: #222;
+    display: block;
+    margin: auto;
+    border: 4px solid #444;
+    border-radius: 12px;
+  }
+  .ui {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .screen {
+    position: absolute; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    background: rgba(0,0,0,0.6);
+    animation: fadeIn 0.5s ease;
+  }
+  .screen.hidden { display: none; }
+  button {
+    pointer-events: auto;
+    padding: 14px 30px;
+    margin: 10px;
+    font-size: 1.2rem;
+    background: #444;
+    color: #fff;
+    border: 2px solid #666;
+    border-radius: 12px;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    cursor: pointer;
+  }
+  button:hover {
+    background: #666;
+    transform: scale(1.05);
+    border-color: #aaa;
+  }
+  h1, h2 {
+    margin-bottom: 16px;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn {
+    from {opacity:0; transform: scale(0.98);}
+    to {opacity:1; transform: scale(1);}
+  }
+</style>
 </head>
 <body>
-  <canvas id="game" width="640" height="480"></canvas>
-  <div class="ui">
-    <div id="title" class="screen">
-      <h1>Mini Mario Kart</h1>
-      <button id="btnSingle">Single Player</button>
-      <button id="btnMulti">Multiplayer</button>
-    </div>
-    <div id="charSelect" class="screen hidden">
-      <h2>Select Your Racer</h2>
-      <button class="charBtn" data-color="red">Red</button>
-      <button class="charBtn" data-color="blue">Blue</button>
-      <button class="charBtn" data-color="green">Green</button>
-    </div>
-    <div id="trackSelect" class="screen hidden">
-      <h2>Select Track</h2>
-      <div id="trackButtons"></div>
-    </div>
-    <div id="diffSelect" class="screen hidden">
-      <h2>Select Difficulty</h2>
-      <div id="diffButtons"></div>
-    </div>
-    <div id="lobby" class="screen hidden">
-      <h2>Multiplayer Lobby</h2>
-      <button id="btnHost">Host Game</button>
-      <div id="lobbyList"></div>
-      <button id="btnBackLobby">Back</button>
-    </div>
-    <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
-    <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
-      <div id="lapInfo"></div>
-      <div id="posInfo"></div>
-      <div id="statusInfo"></div>
-    </div>
+<canvas id="game" width="640" height="480"></canvas>
+<div class="ui">
+  <div id="title" class="screen">
+    <h1>Firebase Mario Kart</h1>
+    <button id="btnSingle">Single Player</button>
+    <button id="btnMulti">Multiplayer</button>
   </div>
-  <script>
-    //
-    // ——— Setup ———
-    //
-    const socket = io(); // assumes server on same origin
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const screens = {
-      title: document.getElementById('title'),
-      char: document.getElementById('charSelect'),
-      track: document.getElementById('trackSelect'),
-      diff: document.getElementById('diffSelect'),
-      lobby: document.getElementById('lobby'),
-      countdown: document.getElementById('countdown'),
-      hud: document.getElementById('hud')
+  <div id="charSelect" class="screen hidden">
+    <h2>Select Your Racer</h2>
+    <button class="charBtn" data-color="red">Red</button>
+    <button class="charBtn" data-color="blue">Blue</button>
+    <button class="charBtn" data-color="green">Green</button>
+  </div>
+  <div id="trackSelect" class="screen hidden">
+    <h2>Select Track</h2>
+    <button data-track="0">Green</button>
+    <button data-track="1">Desert</button>
+    <button data-track="2">Snow</button>
+    <button data-track="3">City</button>
+    <button data-track="4">Beach</button>
+  </div>
+  <div id="diffSelect" class="screen hidden">
+    <h2>Select Difficulty</h2>
+    <button data-diff="Easy">Easy</button>
+    <button data-diff="Normal">Normal</button>
+    <button data-diff="Medium">Medium</button>
+    <button data-diff="Hard">Hard</button>
+    <button data-diff="Insane">Insane</button>
+  </div>
+  <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
+  <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
+    <div id="lapInfo"></div>
+    <div id="posInfo"></div>
+    <div id="statusInfo"></div>
+  </div>
+</div>
+
+<!-- Firebase SDK (compat version) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+  // Your Firebase config with databaseURL included
+  const firebaseConfig = {
+    apiKey: "AIzaSyDLnCLlDiBH08e8EMKAdeY4ljtwtae9gjw",
+    authDomain: "skbiidi-sigma.firebaseapp.com",
+    databaseURL: "https://skbiidi-sigma-default-rtdb.firebaseio.com",
+    projectId: "skbiidi-sigma",
+    storageBucket: "skbiidi-sigma.appspot.com",
+    messagingSenderId: "414662564646",
+    appId: "1:414662564646:web:6f1a3e294e1c404a017fe7",
+    measurementId: "G-BRW7T04J61"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // UI references
+  const screens = {
+    title: document.getElementById('title'),
+    char: document.getElementById('charSelect'),
+    track: document.getElementById('trackSelect'),
+    diff: document.getElementById('diffSelect'),
+    countdown: document.getElementById('countdown'),
+    hud: document.getElementById('hud')
+  };
+  function show(name){
+    Object.values(screens).forEach(s=>s.classList.add('hidden'));
+    screens[name].classList.remove('hidden');
+  }
+
+  // Game variables
+  let playerId = 'player-' + Math.floor(Math.random()*1000000);
+  let players = {};
+  let localPlayer = { x:320, y:240, color:'red', lap:0 };
+  let keys = {};
+  let raceStarted = false;
+  let lapsToComplete = 3;
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  // UI buttons logic
+  document.getElementById('btnSingle').onclick = () => {
+    multiplayer = false;
+    show('char');
+  };
+  document.getElementById('btnMulti').onclick = () => {
+    multiplayer = true;
+    show('char');
+  };
+
+  let multiplayer = false;
+
+  document.querySelectorAll('.charBtn').forEach(b => {
+    b.onclick = () => {
+      localPlayer.color = b.dataset.color;
+      show('track');
     };
-    const states = {};
-    let mode = 'single'; // or 'multi'
-    const tracks = ['Green','Desert','Snow','City','Beach'];
-    const diffs = ['Easy','Normal','Medium','Hard','Insane'];
+  });
 
-    function show(k){ Object.values(screens).forEach(s=>s.classList.add('hidden')); screens[k].classList.remove('hidden'); }
-
-    // title
-    document.getElementById('btnSingle').onclick = () => {
-      mode='single';
-      show('char');
-    };
-    document.getElementById('btnMulti').onclick = () => {
-      mode='multi';
-      fetchLobbies();
-      show('lobby');
-    };
-
-    // character
-    document.querySelectorAll('.charBtn').forEach(b=>{
-      b.onclick=()=>{
-        states.color=b.dataset.color;
-        if(mode==='single') show('track');
-        else show('lobby');
-      };
-    });
-
-    // track
-    const trackButtons = document.getElementById('trackButtons');
-    tracks.forEach((t,i)=> {
-      const b = document.createElement('button');
-      b.textContent=t;
-      b.onclick=()=>{ states.track=i; mode==='single'?show('diff'):null; };
-      trackButtons.appendChild(b);
-    });
-    // difficulty
-    const diffButtons = document.getElementById('diffButtons');
-    diffs.forEach(d=>{
-      const b = document.createElement('button');
-      b.textContent=d;
-      b.onclick=()=>{
-        states.diff=d; states.laps=3; states.trackCount=0; states.pos=1;
+  document.querySelectorAll('#trackSelect button').forEach(b => {
+    b.onclick = () => {
+      localPlayer.track = parseInt(b.dataset.track);
+      if(!multiplayer){
+        show('diff');
+      } else {
         startRace();
-      };
-      diffButtons.appendChild(b);
-    });
-
-    //
-    // ——— Multiplayer Lobby ———
-    //
-    const lobbyList = document.getElementById('lobbyList');
-    document.getElementById('btnHost').onclick = () => {
-      socket.emit('hostLobby', { track:0, color: states.color });
-    };
-    document.getElementById('btnBackLobby').onclick = () => show('title');
-
-    socket.on('lobbies', list => {
-      lobbyList.innerHTML = '';
-      list.forEach(l=> {
-        const b = document.createElement('button');
-        b.textContent = `Room ${l.id} (${l.count} players)`;
-        b.onclick=()=> {
-          socket.emit('joinLobby', { id:l.id, color:states.color });
-        };
-        lobbyList.appendChild(b);
-      });
-    });
-
-    socket.on('joinedLobby', data => {
-      states.lobbyId=data.id;
-      show('countdown');
-      states.laps=3; states.trackCount=0;
-      playCountdown(3, ()=> loop(true));
-    });
-
-    //
-    // ——— Race Flow ———
-    //
-    function startRace(){
-      playCountdown(3, ()=> loop(false));
-    }
-    function playCountdown(c, done){
-      const ct = document.getElementById('countText');
-      show('countdown');
-      ct.textContent = c>0?c:'GO!';
-      setTimeout(()=>{
-        if(c>0) playCountdown(c-1,done);
-        else { show('hud'); done(); }
-      },1000);
-    }
-
-    //
-    // ——— Main Loop ———
-    //
-    const keys = {};
-    window.onkeydown = e=> keys[e.key]=1;
-    window.onkeyup   = e=> keys[e.key]=0;
-
-    function loop(isMulti){
-      update(isMulti);
-      draw();
-      if(states.trackCount < tracks.length) requestAnimationFrame(()=>loop(isMulti));
-      else finishGP(isMulti);
-    }
-
-    function update(isMulti){
-      // simple physics
-      states.x = (states.x||320) + ((keys.ArrowRight?2:keys.ArrowLeft?-2:0));
-      states.y = (states.y||240) + ((keys.ArrowUp? -2:keys.ArrowDown?2:0));
-      // wrap
-      states.x = (states.x+640)%640;
-      states.y = (states.y+480)%480;
-
-      if(isMulti){
-        socket.emit('playerMove', { x:states.x, y:states.y });
       }
+    };
+  });
+
+  document.querySelectorAll('#diffSelect button').forEach(b => {
+    b.onclick = () => {
+      localPlayer.difficulty = b.dataset.diff;
+      startRace();
+    };
+  });
+
+  // Movement keys
+  window.onkeydown = e => { keys[e.key] = true; }
+  window.onkeyup = e => { keys[e.key] = false; }
+
+  // Firebase listeners for multiplayer
+  if (multiplayer) {
+    db.ref('players').on('value', snapshot => {
+      players = snapshot.val() || {};
+      if (!players[playerId]) players[playerId] = localPlayer;
+      draw();
+    });
+  }
+
+  // Write own position every 100ms for multiplayer
+  setInterval(() => {
+    if(multiplayer && raceStarted){
+      db.ref('players/' + playerId).set(localPlayer);
+    }
+  }, 100);
+
+  function startRace(){
+    show('countdown');
+    let count = 3;
+    const countdownEl = document.getElementById('countText');
+
+    function tick() {
+      countdownEl.textContent = count > 0 ? count : 'GO!';
+      if(count <= 0){
+        raceStarted = true;
+        show('hud');
+        loop();
+      }
+      count--;
+      if(count >= -1) setTimeout(tick, 1000);
+    }
+    tick();
+  }
+
+  // Main game loop
+  function loop(){
+    update();
+    draw();
+    if(localPlayer.lap >= lapsToComplete){
+      alert('Race finished! Thanks for playing.');
+      resetGame();
+      return;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function update(){
+    if(!raceStarted) return;
+    if(keys.ArrowUp) localPlayer.y -= 3;
+    if(keys.ArrowDown) localPlayer.y += 3;
+    if(keys.ArrowLeft) localPlayer.x -= 3;
+    if(keys.ArrowRight) localPlayer.x += 3;
+
+    // Keep player inside canvas bounds
+    localPlayer.x = Math.min(Math.max(localPlayer.x, 10), canvas.width-10);
+    localPlayer.y = Math.min(Math.max(localPlayer.y, 10), canvas.height-10);
+
+    // Simple lap counting based on y position crossing top (just demo logic)
+    if(localPlayer.y < 15 && !localPlayer.crossedLine){
+      localPlayer.lap++;
+      localPlayer.crossedLine = true;
+    }
+    if(localPlayer.y > 50){
+      localPlayer.crossedLine = false;
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Draw track background (just color by track)
+    const trackColors = ['#0a0','#a60','#0af','#666','#fa0'];
+    ctx.fillStyle = trackColors[localPlayer.track || 0];
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // Draw all players
+    for(let id in players){
+      const p = players[id];
+      ctx.fillStyle = p.color || 'red';
+      ctx.fillRect(p.x-10, p.y-10, 20, 20);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(id === playerId ? 'You' : 'Player', p.x-10, p.y-15);
     }
 
-    function draw(){
-      ctx.clearRect(0,0,640,480);
-      ctx.fillStyle = ['#0a0','#a60','#0af','#666','#fa0'][states.track||0];
-      ctx.fillRect(0,0,640,480);
-      ctx.fillStyle = states.color||'red';
-      ctx.fillRect((states.x||320)-10,(states.y||240)-10,20,20);
-      document.getElementById('lapInfo').textContent = '';
-      document.getElementById('posInfo').textContent = '';
-      document.getElementById('statusInfo').textContent = '';
+    // HUD info
+    document.getElementById('lapInfo').textContent = `Lap: ${localPlayer.lap}/${lapsToComplete}`;
+    document.getElementById('posInfo').textContent = `Position: 1`; // No ranking calc here for simplicity
+    document.getElementById('statusInfo').textContent = multiplayer ? 'Multiplayer' : 'Single Player';
+  }
+
+  function resetGame(){
+    raceStarted = false;
+    localPlayer.lap = 0;
+    localPlayer.x = 320;
+    localPlayer.y = 240;
+    show('title');
+    if(multiplayer) {
+      db.ref('players/' + playerId).remove();
     }
-
-    function finishGP(isMulti){
-      alert((isMulti?'Online ':'Single ')+'Grand Prix Finished 🤝');
-      show('title');
-    }
-
-    //
-    // ——— Lobby Refresh ———
-    //
-    function fetchLobbies(){
-      socket.emit('listLobbies');
-    }
-    socket.on('updateLobbies',fetchLobbies);
-
-    //
-    // ——— Connect errors ———
-    //
-    socket.on('connect_error', e=>alert('Cannot connect to server'));
-
-  </script>
+  }
+</script>
 </body>
 </html>
