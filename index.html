@@ -1,80 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Mini Mario Kart</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #111;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      margin: auto;
-      background: #1d1d1d;
-      image-rendering: pixelated;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Mario Kart</title>
+<style>
+  body, html { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background:#222; color:#fff; }
+  canvas { background:#333; display:block; margin:auto; }
+  .ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  .menu, .screen { position:absolute; width:100%; height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; background:rgba(0,0,0,0.7); animation:fadeIn 0.5s; }
+  .menu.hidden, .screen.hidden { display:none; }
+  button { font-size:1.2rem; padding:10px 20px; margin:8px; cursor:pointer; }
+  button:hover { background:#555; }
+  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+</style>
 </head>
 <body>
 <canvas id="game" width="640" height="480"></canvas>
+<div class="ui">
+  <div id="titleScreen" class="screen">
+    <h1>Mini Mario Kart</h1>
+    <button id="startBtn">Start Grand Prix</button>
+  </div>
+  <div id="characterSelect" class="screen hidden">
+    <h2>Select Your Racer</h2>
+    <div><button class="charBtn" data-char="red">Red</button><button class="charBtn" data-char="blue">Blue</button></div>
+  </div>
+  <div id="trackSelect" class="screen hidden">
+    <h2>Select Track</h2>
+    <div id="trackButtons"></div>
+  </div>
+  <div id="difficultySelect" class="screen hidden">
+    <h2>Select Difficulty</h2>
+    <div id="diffButtons"></div>
+  </div>
+  <div id="countdown" class="screen hidden"><h1 id="countText"></h1></div>
+  <div id="hud" class="screen hidden" style="background:transparent; flex-direction:row; justify-content:space-between; padding:10px;">
+    <div id="lapInfo"></div><div id="raceInfo"></div><div id="posInfo"></div>
+  </div>
+</div>
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
-
-const track = new Image();
-track.src = "https://i.imgur.com/IRcy0vY.png"; // Sample top-down track image
-
-const kart = {
-  x: 320,
-  y: 240,
-  angle: 0,
-  speed: 0,
-  maxSpeed: 2.5,
-  friction: 0.98,
-  turnSpeed: 0.05,
-  accel: 0.1,
-  width: 16,
-  height: 24
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const screens = {
+  title: document.getElementById('titleScreen'),
+  char: document.getElementById('characterSelect'),
+  track: document.getElementById('trackSelect'),
+  diff: document.getElementById('difficultySelect'),
+  countdown: document.getElementById('countdown'),
+  hud: document.getElementById('hud')
 };
 
-function updateKart() {
-  if (keys["ArrowUp"]) kart.speed += kart.accel;
-  if (keys["ArrowDown"]) kart.speed -= kart.accel;
-  kart.speed *= kart.friction;
+let state = {playerChar:'red', trackIdx:0, diff:'Easy', race:0, laps:3, totalRaces:12, position:1};
+const tracks = ['Green', 'Desert', 'Snow', 'City', 'Beach'];
+const diffs = ['Easy','Normal','Medium','Hard','Insane'];
 
-  if (keys["ArrowLeft"]) kart.angle -= kart.turnSpeed * (kart.speed > 0 ? 1 : -1);
-  if (keys["ArrowRight"]) kart.angle += kart.turnSpeed * (kart.speed > 0 ? 1 : -1);
+function show(screen){ for(let k in screens) screens[k].classList.add('hidden'); screens[screen].classList.remove('hidden'); }
+screens.title.querySelector('#startBtn').onclick = () => show('char');
+screens.char.querySelectorAll('.charBtn').forEach(btn=>{
+  btn.onclick=e=>{
+    state.playerChar=e.target.dataset.char;
+    show('track');
+  };
+});
+const trackButtons = document.getElementById('trackButtons');
+tracks.forEach((t,i)=>{
+  let b=document.createElement('button');
+  b.textContent=t; b.onclick=()=>{
+    state.trackIdx=i;
+    show('diff');
+  };
+  trackButtons.appendChild(b);
+});
+const diffButtons = document.getElementById('diffButtons');
+diffs.forEach(d=>{
+  let b=document.createElement('button');
+  b.textContent=d; b.onclick=()=>{
+    state.diff=d; startRace();
+  };
+  diffButtons.appendChild(b);
+});
 
-  kart.x += Math.sin(kart.angle) * kart.speed;
-  kart.y -= Math.cos(kart.angle) * kart.speed;
+function startRace(){
+  state.race++;
+  state.currentLap=1;
+  state.position=1;
+  show('countdown');
+  playCountdown(3, () => {
+    show('hud');
+    loop();
+  });
 }
 
-function drawKart() {
-  ctx.save();
-  ctx.translate(kart.x, kart.y);
-  ctx.rotate(kart.angle);
-  ctx.fillStyle = "red";
-  ctx.fillRect(-kart.width / 2, -kart.height / 2, kart.width, kart.height);
-  ctx.restore();
+function playCountdown(c, done){
+  const ct = document.getElementById('countText');
+  ct.textContent = c>0?c:'GO!';
+  setTimeout(_=>{
+    if(c>0) playCountdown(c-1,done);
+    else done();
+  },1000);
 }
 
-function gameLoop() {
-  updateKart();
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(track, 0, 0);
-  drawKart();
-  requestAnimationFrame(gameLoop);
+function loop(){
+  update();
+  draw();
+  if(state.currentLap <= state.laps) requestAnimationFrame(loop);
+  else finishRace();
 }
 
-track.onload = gameLoop;
+function finishRace(){
+  alert(`Race ${state.race}/${state.totalRaces} done! Position: ${state.position}`);
+  if(state.race < state.totalRaces) show('track');
+  else alert('Grand Prix Completed!');
+}
+
+function update(){
+  // TODO: add player control, AI behavior based on state.diff
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Draw background placeholder
+  ctx.fillStyle=['#0a0','#a60','#0af','#666','#fa0'][state.trackIdx];
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = state.playerChar;
+  ctx.fillRect(300,220,40,30);
+  screens.hud.querySelector('#lapInfo').textContent = `Lap ${state.currentLap}/${state.laps}`;
+  screens.hud.querySelector('#raceInfo').textContent = `Race ${state.race}/${state.totalRaces}`;
+  screens.hud.querySelector('#posInfo').textContent = `Pos: ${state.position}`;
+}
+
+// Keyboard control
+const keys={}; window.addEventListener('keydown', e=>keys[e.key]=1);
+window.addEventListener('keyup', e=>keys[e.key]=0);
 </script>
 </body>
 </html>
-
